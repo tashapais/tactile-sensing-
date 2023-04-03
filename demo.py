@@ -33,6 +33,8 @@ images, labels = dataiter.next()
 
 # Choose a random image from the batch
 img_idx = random.randint(0, images.size(0) - 1)
+correct = 0
+total = 0
 
 for img, label in images, labels: 
     # Choose a random pixel from the image
@@ -51,6 +53,12 @@ for img, label in images, labels:
         pixel_value = img[:, y, x].unsqueeze(0)
         # Make a classification based on the pixel value
         # (you will need to replace this with your own classifier)
-        output = (pixel_value)
-        prediction = torch.argmax(output, dim=1)
+        prediction = random.sample(range(1000),1)
+        if prediction == label:
+            correct += 1
+        total += 1
         print(f"Prediction for movement ({move[0]}, {move[1]}): {prediction.item()}")
+
+
+
+#build the gym environment for the random exploration. Code is on the github, did the same for the github 
