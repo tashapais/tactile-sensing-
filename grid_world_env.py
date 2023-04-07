@@ -10,7 +10,8 @@ import random
 
 class GridWorldEnv(gym.Env):
     metadata = {'render.modes': ['human', 'rgb_array']}
-    def __init__(self, max_ep_len,
+    def __init__(self, 
+                 max_ep_len,
                  ob_type,
                  reward_type,
                  action_type,
