@@ -39,6 +39,8 @@ data = data/np.float32(255)
 mean = mean/np.float32(255)
 data -= mean
 labels = [label-1 for label in labels]
-print(labels)
 
+#we have a thousand labels for this downsized version of Imagenet
+print(labels)
+print(len(set(labels)))
 ## we have the data now let's start building the open ai gym environment
