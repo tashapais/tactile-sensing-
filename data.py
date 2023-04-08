@@ -3,12 +3,10 @@ from argparse import ArgumentParser
 import numpy as np
 from PIL import Image
 import os
-import matplotlib as mpl
 from matplotlib import pyplot as plt
 import torch
 
 
-mpl.use('Agg')
 import matplotlib.pyplot as plt
 
 data = np.load('train_data_batch_1.npz', allow_pickle=True)
