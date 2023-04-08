@@ -1,68 +1,31 @@
-import time 
 import gym 
 import numpy as np 
-import cv2 
 import copy 
 import misc_utils as mu 
 import pybullet_utils as pu
-import math
-import os
 from math import radians
-import itertools
 from gym.utils import seeding
 import random
+import matplotlib.pyplot as plt
 
 
-NUM_CLASSES = 200
+NUM_CLASSES = 1000
+action_map = {
+              0:'up',
+              1:'left',
+              2:'down',
+              3:'right'
+              }
+
+
 
 class GridWorldEnv(gym.Env):
     metadata = {'render.modes':['human', 'rgb_array']}
     def __init__(self, 
-                 max_ep_len,
-                 ob_type,
-                 reward_type,
-                 action_type,
-                 discriminator,
-                 tactile_sim,
-                 window_id=0):
+                 max_ep_len):
         
-        self.ob_type = ob_type
-        self.reward_type = reward_type
-        self.action_type = action_type
-        self.tactile_sim = tactile_sim
-        self.window_id = window_id
-
-        if action_type == 'only_explore':
-            # clockwise, 0 -> up, 1 -> left, 2 -> down, 3 -> right
-            self.action_space = gym.spaces.Discrete(4)
-        elif action_type == 'explore_and_predict':
-            # also predict termination and the predicted class
-            #predict the 
-            self.action_space = gym.spaces.Discrete(4+NUM_CLASSES)
-
-        if ob_type == 'local':
-            # (pixel value, height index, width index)
-            # observation space is left and right inclusive
-            #not sure how this may look now
-            self.observation_space = gym.spaces.Box(low=np.array([0, 0, 0]), high=np.array([1, 7, 7]), dtype=np.uint8)
+        self.action_space = gym.spaces.Discrete(4)
         
-        elif ob_type == 'global':
-            self.observation_space = gym.spaces.Box(low=np.zeros((1, 8, 8)), high=np.full((1, 8, 8), 255), dtype=np.uint8)
-        
-        else:
-            raise TypeError
-        
-        self.max_ep_len = max_ep_len
-        self.discriminator = discriminator
-        self.done_threshold = 1.0
-        self.current_loc = None
-        self.current_step = 0
-        self.images = np.load('datasets/tiny/grids.npy')
-        self.img_gt = None
-        self.num_gt = None
-        self.img_belief = None
-        self.rendered = None
-        self.discover = None
 
     def reset(self):
         """ return initial observations"""
@@ -205,20 +168,16 @@ class GridWorldEnv(gym.Env):
             raise TypeError
 
     def render(self, mode='human'):
-        if not self.rendered:
-            cv2.namedWindow('image'+str(self.window_id), cv2.WINDOW_NORMAL)
-            cv2.resizeWindow('image'+str(self.window_id), 300, 300)
-            self.rendered = True
         if mode == 'rgb_array':
-            return self.img_belief  # return RGB frame suitable for video
+            return self.img_visualization  # return RGB frame suitable for video
         elif mode == 'human':
             # pop up a window for visualization
-            cv2.imshow('image'+str(self.window_id), self.img_belief[0])
-            cv2.waitKey(1)
-            return self.img_belief
+            self.renderer.set_data(self.img_visualization)
+            plt.pause(0.00001)
+            return self.img_visualization
         else:
             super(GridWorldEnv, self).render(mode=mode)  # just raise an exception
-
+        
     def compute_next_loc(self, action):
         # clockwise action
         if action == 0:

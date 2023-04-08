@@ -6,7 +6,6 @@ import csv
 import pybullet_data
 import pybullet as p
 
-import icp
 import pybullet_utils as pu
 import pandas as pd
 from math import radians, cos, sin, sqrt, exp
