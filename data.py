@@ -17,9 +17,12 @@ mean = mean/np.float32(255)
 data -= mean
 labels = [label-1 for label in labels]
 
+print(data.shape)
+print(len(labels))
 
 for img in data:
     img = img.reshape((8, 8, 3))
+    print(img[(0,0)])
     plt.imshow(img)
     plt.show()
     break

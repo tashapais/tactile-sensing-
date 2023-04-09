@@ -6,7 +6,6 @@ from math import radians
 from gym.utils import seeding
 import matplotlib.pyplot as plt
 
-
 NUM_CLASSES = 1000
 action_map = {
     0: 'up',
@@ -14,7 +13,6 @@ action_map = {
     2: 'down',
     3: 'right'
 }
-
 
 class GridWorldEnv(gym.Env):
     metadata = {'render.modes': ['human', 'rgb_array']}
@@ -24,12 +22,12 @@ class GridWorldEnv(gym.Env):
         self.action_space = gym.spaces.Discrete(4)
         # (pixel value, axis 0 index, axis 1 index)
         # observation space is left and right inclusive
-        self.observation_space = gym.spaces.Box(low=np.array([0, 0, 0]), high=np.array([1, 8, 8]), dtype=np.uint8)
+        self.observation_space = gym.spaces.Box(low=np.array([0, 0, 0]), high=np.array([1, 7, 7]), dtype=np.uint8)
         self.max_ep_len = max_ep_len
-
         self.current_loc = None
         self.current_step = 0
-        self.images = np.load('datasets/tiny/grids.npy')
+        data = np.load('train_data_batch_1.npz', allow_pickle=True)
+        self.labels, self.images, self.mean = data['labels'], data['data'], data['mean']
         self.img_gt = None
         self.img_index = None
         self.img_visualization = None
@@ -39,15 +37,15 @@ class GridWorldEnv(gym.Env):
         """ return initial observations"""
         # red is unexplored in visualization
         self.img_visualization = np.full((8, 8, 3), [255, 0, 0], dtype=np.uint8)
-        self.img_index = np.random.randint(low=0, high=10)
+        self.img_index = np.random.randint(low=0, high=len(self.labels))
         self.img_gt = self.images[self.img_index]
-        initial_loc = np.random.randint(low=(0, 0), high=(28, 28))
+        initial_loc = np.random.randint(low=(0, 0), high=(8, 8))
         self.current_step = 0
         self.renderer = plt.imshow(self.img_visualization)
 
         pixel_value = self.img_gt[tuple(initial_loc)]
-        self.img_visualization[tuple(initial_loc)] = np.array([0, 0, 0]) if pixel_value == 1 else np.array([255, 255,
-                                                                                                            255])
+        self.img_visualization[tuple(initial_loc)] = np.array([0, 0, 0]) if pixel_value == np.array([0, 0, 0]) else pixel_value
+
         ob = np.array([pixel_value, initial_loc[0], initial_loc[1]])
         self.current_loc = initial_loc
         self.current_step += 1
@@ -57,7 +55,7 @@ class GridWorldEnv(gym.Env):
         new_loc = self.compute_next_loc(action)
         pixel_value = self.img_gt[tuple(new_loc)]
         ob = np.array([pixel_value, new_loc[0], new_loc[1]])
-        self.img_visualization[tuple(new_loc)] = np.array([0, 0, 0]) if pixel_value == 1 else np.array([255, 255, 255])
+        self.img_visualization[tuple(new_loc)] = np.array([0, 0, 0]) if pixel_value == np.array([0, 0, 0]) else pixel_value
         self.current_step += 1
         self.current_loc = new_loc
 
@@ -102,7 +100,7 @@ class GridWorldEnv(gym.Env):
 
 if __name__ == "__main__":
     num_episodes = 500
-    max_ep_len = 1000 
+    max_ep_len = 10
 
     grid_world_env = GridWorldEnv(max_ep_len=max_ep_len)
     
