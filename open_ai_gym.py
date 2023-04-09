@@ -123,5 +123,4 @@ if __name__ == "__main__":
                 print(grid_world_env.current_step)
             
             grid_world_env.render()
-    
         time.sleep(3)
