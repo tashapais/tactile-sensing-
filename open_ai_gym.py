@@ -5,6 +5,7 @@ import pybullet_utils as pu
 from math import radians
 from gym.utils import seeding
 import matplotlib.pyplot as plt
+import time
 
 NUM_CLASSES = 1000
 action_map = {
@@ -39,12 +40,19 @@ class GridWorldEnv(gym.Env):
         self.img_visualization = np.full((8, 8, 3), [255, 0, 0], dtype=np.uint8)
         self.img_index = np.random.randint(low=0, high=len(self.labels))
         self.img_gt = self.images[self.img_index]
+        self.img_gt = self.img_gt.reshape((8,8,3))
+
+        print("Images below:")
+        print(self.img_gt)
+        print(self.img_gt.shape)
+        
         initial_loc = np.random.randint(low=(0, 0), high=(8, 8))
         self.current_step = 0
         self.renderer = plt.imshow(self.img_visualization)
 
+        print(initial_loc)
         pixel_value = self.img_gt[tuple(initial_loc)]
-        self.img_visualization[tuple(initial_loc)] = np.array([0, 0, 0]) if pixel_value == np.array([0, 0, 0]) else pixel_value
+        self.img_visualization[tuple(initial_loc)] = np.array([0, 0, 0]) if np.array_equal(pixel_value, np.array([0, 0, 0])) else pixel_value
 
         ob = np.array([pixel_value, initial_loc[0], initial_loc[1]])
         self.current_loc = initial_loc
@@ -55,7 +63,7 @@ class GridWorldEnv(gym.Env):
         new_loc = self.compute_next_loc(action)
         pixel_value = self.img_gt[tuple(new_loc)]
         ob = np.array([pixel_value, new_loc[0], new_loc[1]])
-        self.img_visualization[tuple(new_loc)] = np.array([0, 0, 0]) if pixel_value == np.array([0, 0, 0]) else pixel_value
+        self.img_visualization[tuple(new_loc)] = np.array([0, 0, 0]) if np.array_equal(pixel_value, np.array([0, 0, 0])) else pixel_value
         self.current_step += 1
         self.current_loc = new_loc
 
@@ -84,10 +92,10 @@ class GridWorldEnv(gym.Env):
         elif action == 1:
             # move right
             x = self.current_loc[0]
-            y = self.current_loc[1] if self.current_loc[1] == 27 else self.current_loc[1] + 1
+            y = self.current_loc[1] if self.current_loc[1] == 7 else self.current_loc[1] + 1
         elif action == 2:
             # move down
-            x = self.current_loc[0] if self.current_loc[0] == 27 else self.current_loc[0] + 1
+            x = self.current_loc[0] if self.current_loc[0] == 7  else self.current_loc[0] + 1
             y = self.current_loc[1]
         elif action == 3:
             # move left
@@ -99,11 +107,9 @@ class GridWorldEnv(gym.Env):
     
 
 if __name__ == "__main__":
-    num_episodes = 500
+    num_episodes = 5
     max_ep_len = 10
-
     grid_world_env = GridWorldEnv(max_ep_len=max_ep_len)
-    
     for _ in range(num_episodes):
         initial_ob = grid_world_env.reset()
         grid_world_env.render()
@@ -117,8 +123,5 @@ if __name__ == "__main__":
                 print(grid_world_env.current_step)
             
             grid_world_env.render()
-
-
-
-
-
+    
+        time.sleep(3)
