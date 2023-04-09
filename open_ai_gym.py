@@ -1,171 +1,70 @@
 import gym 
 import numpy as np 
-import copy 
 import misc_utils as mu 
 import pybullet_utils as pu
 from math import radians
 from gym.utils import seeding
-import random
 import matplotlib.pyplot as plt
 
 
 NUM_CLASSES = 1000
 action_map = {
-              0:'up',
-              1:'left',
-              2:'down',
-              3:'right'
-              }
-
+    0: 'up',
+    1: 'left',
+    2: 'down',
+    3: 'right'
+}
 
 
 class GridWorldEnv(gym.Env):
-    metadata = {'render.modes':['human', 'rgb_array']}
-    def __init__(self, 
-                 max_ep_len):
-        
-        self.action_space = gym.spaces.Discrete(4)
-        
+    metadata = {'render.modes': ['human', 'rgb_array']}
 
+    def __init__(self, max_ep_len):
+        # clockwise, 0 -> up, 1 -> left, 2 -> down, 3 -> right
+        self.action_space = gym.spaces.Discrete(4)
+        # (pixel value, axis 0 index, axis 1 index)
+        # observation space is left and right inclusive
+        self.observation_space = gym.spaces.Box(low=np.array([0, 0, 0]), high=np.array([1, 8, 8]), dtype=np.uint8)
+        self.max_ep_len = max_ep_len
+
+        self.current_loc = None
+        self.current_step = 0
+        self.images = np.load('datasets/tiny/grids.npy')
+        self.img_gt = None
+        self.img_index = None
+        self.img_visualization = None
+        self.renderer = None
+          
     def reset(self):
         """ return initial observations"""
-        self.discover = True
-
-        #again not sure how to convert from BW to RGB
-        self.img_belief = np.full((1, 8, 8), mu.unexplored, dtype=np.uint8)
-        self.num_gt = np.random.randint(low=0, high=10)
-        self.img_gt = self.images[self.num_gt]
-        if self.tactile_sim:
-            # make sure the pixel value at initial location is not white. not starting on / within boundaries
-            indices = np.transpose(np.where(self.img_gt != mu.white))
-            initial_loc = tuple(indices[random.choice(range(indices.shape[0]))])
-        else:
-            initial_loc = tuple(np.random.randint(low=(0, 0), high=(28, 28)))
-        
+        # red is unexplored in visualization
+        self.img_visualization = np.full((8, 8, 3), [255, 0, 0], dtype=np.uint8)
+        self.img_index = np.random.randint(low=0, high=10)
+        self.img_gt = self.images[self.img_index]
+        initial_loc = np.random.randint(low=(0, 0), high=(28, 28))
         self.current_step = 0
+        self.renderer = plt.imshow(self.img_visualization)
 
-        pixel_value = self.img_gt[initial_loc]
-        self.img_belief[0][initial_loc] = mu.current_black if pixel_value == mu.black else mu.current_white
+        pixel_value = self.img_gt[tuple(initial_loc)]
+        self.img_visualization[tuple(initial_loc)] = np.array([0, 0, 0]) if pixel_value == 1 else np.array([255, 255,
+                                                                                                            255])
+        ob = np.array([pixel_value, initial_loc[0], initial_loc[1]])
         self.current_loc = initial_loc
-
-        if self.ob_type == 'local':
-            ob = np.array([pixel_value, initial_loc[0], initial_loc[1]])
-        elif self.ob_type == 'global':
-            ob = self.img_belief
-        else:
-            raise TypeError
+        self.current_step += 1
         return ob
 
-
     def step(self, action):
-        if self.action_type == 'only_explore':
-            num_explored = np.count_nonzero(self.img_belief != mu.unexplored)
-            new_loc = self.compute_next_loc(action)
-            pixel_value = self.img_gt[new_loc]
-            if self.tactile_sim and pixel_value == mu.white:
-                self.img_belief[0][new_loc] = mu.white
-                new_loc = self.current_loc
-            else:
-                # change the pixel at current location assuming the agent has left
-                self.img_belief[0][self.current_loc] = mu.black if self.img_belief[0][self.current_loc] \
-                                                                    == mu.current_black else mu.white
-                # reveal pixel at new location, assuming the agent is on the new location
-                self.img_belief[0][new_loc] = mu.current_black if pixel_value == mu.black else mu.current_white
-            self.discover = True if np.count_nonzero(self.img_belief != mu.unexplored) > num_explored else False
-            self.current_step += 1
-            self.current_loc = new_loc
+        new_loc = self.compute_next_loc(action)
+        pixel_value = self.img_gt[tuple(new_loc)]
+        ob = np.array([pixel_value, new_loc[0], new_loc[1]])
+        self.img_visualization[tuple(new_loc)] = np.array([0, 0, 0]) if pixel_value == 1 else np.array([255, 255, 255])
+        self.current_step += 1
+        self.current_loc = new_loc
 
-            # compute observation
-            if self.ob_type == 'local':
-                ob = np.array([pixel_value, new_loc[0], new_loc[1]])
-            elif self.ob_type == 'global':
-                ob = self.img_belief
-            else:
-                raise TypeError
-
-            # discriminator does not care about agent location
-            discriminator_input = copy.deepcopy(self.img_belief)
-            discriminator_input[0][self.current_loc] = mu.black if discriminator_input[0][self.current_loc] == \
-                                                                        mu.current_black else mu.white
-            self.prediction, self.max_prob, self.probs = self.discriminator.predict(discriminator_input)
-            # print('prediction: {} \n max_prob: {} \n probs: {}'.format(prediction, max_prob, probs))
-            self.info = {}
-            self.done = self.check_done()
-            self.success = self.check_success()
-            self.info.update({'success': self.success,
-                                'num_explored_pixels': np.count_nonzero(self.img_belief != 127),
-                                'prediction': self.prediction,
-                                'max_prob': self.max_prob,
-                                'num_gt': self.num_gt,
-                                'discriminator_input': discriminator_input,
-                                'discover': self.discover})
-
-            reward = self.compute_reward()
-            return ob, reward, self.done, self.info
-        
-        elif self.action_type == 'explore_and_predict':
-            if action <= 3:
-                self.img_belief[0][self.current_loc] = mu.black \
-                    if self.img_belief[0][self.current_loc] == mu.current_black else mu.white
-                new_loc = self.compute_next_loc(action)
-                pixel_value = self.img_gt[new_loc]
-                discover = True if self.img_belief[0][new_loc] == mu.unexplored else False
-                self.img_belief[0][new_loc] = mu.current_black if pixel_value == mu.black else mu.current_white
-                self.current_step += 1
-                self.current_loc = new_loc
-
-                # compute observation
-                if self.ob_type == 'local':
-                    ob = np.array([pixel_value, new_loc[0], new_loc[1]])
-                elif self.ob_type == 'global':
-                    ob = self.img_belief
-                else:
-                    raise TypeError
-
-                done = True if self.current_step == self.max_ep_len else False
-                reward = 0
-                info = {}
-                info.update({'success': False})
-                return ob, reward, done, info
-            
-            else:
-                ob = self.img_belief
-                prediction = action - 4
-                done = True
-                info = {}
-                if prediction == self.num_gt:
-                    reward = 1
-                    info.update({'success': True})
-                else:
-                    reward = 0
-                    info.update({'success': False})
-                return ob, reward, done, info
-
-    def check_done(self):
-        return self.current_step == self.max_ep_len or self.max_prob >= self.done_threshold
-
-    def check_success(self):
-        return self.max_prob >= self.done_threshold and self.prediction == self.num_gt
-
-    def compute_reward(self):
-        if self.reward_type == 'only_done_reward':
-            # only penalize time, fully trust discriminator, learn to satisfy discriminator
-            if self.done:
-                return 1
-            else:
-                return 0
-        elif self.reward_type == 'only_success_reward':
-            if self.success:
-                return 1.0
-            else:
-                return 0.0
-        elif self.reward_type == 'new_pixel':
-            if self.discover:
-                return 1.0
-            else:
-                return 0.0
-        else:
-            raise TypeError
+        reward = 1
+        info = {}
+        done = self.current_step == self.max_ep_len
+        return ob, reward, done, info
 
     def render(self, mode='human'):
         if mode == 'rgb_array':
@@ -177,7 +76,7 @@ class GridWorldEnv(gym.Env):
             return self.img_visualization
         else:
             super(GridWorldEnv, self).render(mode=mode)  # just raise an exception
-        
+
     def compute_next_loc(self, action):
         # clockwise action
         if action == 0:
@@ -199,5 +98,29 @@ class GridWorldEnv(gym.Env):
         else:
             raise NotImplementedError('no such action!')
         return (x, y)
+    
+
+if __name__ == "__main__":
+    num_episodes = 500
+    max_ep_len = 1000 
+
+    grid_world_env = GridWorldEnv(max_ep_len=max_ep_len)
+    
+    for _ in range(num_episodes):
+        initial_ob = grid_world_env.reset()
+        grid_world_env.render()
+        done = False
+
+        while not done:
+            action = grid_world_env.action_space.sample()
+            obs, reward, done, info = grid_world_env.step(action)
+
+            if done:
+                print(grid_world_env.current_step)
+            
+            grid_world_env.render()
+
+
+
 
 

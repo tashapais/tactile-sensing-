@@ -7,14 +7,9 @@ from matplotlib import pyplot as plt
 import torch
 
 
-import matplotlib.pyplot as plt
 
 data = np.load('train_data_batch_1.npz', allow_pickle=True)
-
 labels, data, mean = data['labels'], data['data'], data['mean']
-
-
-
 
 
 data = data/np.float32(255)
