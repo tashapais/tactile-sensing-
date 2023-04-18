@@ -6,29 +6,32 @@ from math import radians
 from gym.utils import seeding
 import matplotlib.pyplot as plt
 import time
+from data import DataLoader
+import torchvision
+import torch 
 
-NUM_CLASSES = 1000
 action_map = {
     0: 'up',
     1: 'left',
     2: 'down',
     3: 'right'
 }
+HEIGHT, WIDTH = 32, 32
+
 
 class GridWorldEnv(gym.Env):
     metadata = {'render.modes': ['human', 'rgb_array']}
 
-    def __init__(self, max_ep_len):
+    def __init__(self, max_ep_len, labels, images):
         # clockwise, 0 -> up, 1 -> left, 2 -> down, 3 -> right
         self.action_space = gym.spaces.Discrete(4)
         # (pixel value, axis 0 index, axis 1 index)
         # observation space is left and right inclusive
-        self.observation_space = gym.spaces.Box(low=np.array([0, 0, 0]), high=np.array([1, 7, 7]), dtype=np.uint8)
+        self.observation_space = gym.spaces.Box(low=np.array([0, 0, 0]), high=np.array([1, HEIGHT-1, WIDTH-1]), dtype=np.uint8)
         self.max_ep_len = max_ep_len
         self.current_loc = None
         self.current_step = 0
-        data = np.load('train_data_batch_1.npz', allow_pickle=True)
-        self.labels, self.images, self.mean = data['labels'], data['data'], data['mean']
+        self.labels, self.images = labels, images
         self.img_gt = None
         self.img_index = None
         self.img_visualization = None
@@ -37,24 +40,26 @@ class GridWorldEnv(gym.Env):
     def reset(self):
         """ return initial observations"""
         # red is unexplored in visualization
-        self.img_visualization = np.full((8, 8, 3), [255, 0, 0], dtype=np.uint8)
+        self.img_visualization = np.full((HEIGHT, WIDTH, 3), [255, 0, 0], dtype=np.uint8)
         self.img_index = np.random.randint(low=0, high=len(self.labels))
         self.img_gt = self.images[self.img_index]
-        self.img_gt = self.img_gt.reshape((8,8,3))
+        self.img_gt = self.img_gt.reshape((HEIGHT,WIDTH,3))
 
         print("Images below:")
         print(self.img_gt)
         print(self.img_gt.shape)
         
-        initial_loc = np.random.randint(low=(0, 0), high=(8, 8))
+        initial_loc = np.random.randint(low=(0, 0), high=(HEIGHT, WIDTH))
         self.current_step = 0
         self.renderer = plt.imshow(self.img_visualization)
 
-        print(initial_loc)
         pixel_value = self.img_gt[tuple(initial_loc)]
         self.img_visualization[tuple(initial_loc)] = np.array([0, 0, 0]) if np.array_equal(pixel_value, np.array([0, 0, 0])) else pixel_value
 
-        ob = np.array([pixel_value, initial_loc[0], initial_loc[1]])
+
+        print("Pixel value looks like below")
+        print(pixel_value)
+        ob = (pixel_value.numpy(), (initial_loc[0], initial_loc[1]))
         self.current_loc = initial_loc
         self.current_step += 1
         return ob
@@ -62,7 +67,7 @@ class GridWorldEnv(gym.Env):
     def step(self, action):
         new_loc = self.compute_next_loc(action)
         pixel_value = self.img_gt[tuple(new_loc)]
-        ob = np.array([pixel_value, new_loc[0], new_loc[1]])
+        ob = (pixel_value.numpy(), (new_loc[0], new_loc[1]))
         self.img_visualization[tuple(new_loc)] = np.array([0, 0, 0]) if np.array_equal(pixel_value, np.array([0, 0, 0])) else pixel_value
         self.current_step += 1
         self.current_loc = new_loc
@@ -104,16 +109,35 @@ class GridWorldEnv(gym.Env):
         else:
             raise NotImplementedError('no such action!')
         return (x, y)
-    
+
 
 if __name__ == "__main__":
-    num_episodes = 5
+    num_episodes = 500
     max_ep_len = 10
-    grid_world_env = GridWorldEnv(max_ep_len=max_ep_len)
-    for _ in range(num_episodes):
+    data_loader = DataLoader(batch_size=1)
+    
+    train_loader = data_loader.return_trainloader()
+    test_loader = data_loader.return_testloader()
+    train_iter = iter(train_loader)
+    test_iter = iter(test_loader)
+    images, labels = next(train_iter)
+
+    image = images[0]
+    label = labels[0]
+
+    image = torch.transpose(image,0,1)
+    image = torch.transpose(image,1,2)
+
+    grid_world_env = GridWorldEnv(max_ep_len=max_ep_len, 
+                                  labels=labels,
+                                  images=images)
+    for i in range(num_episodes):
         initial_ob = grid_world_env.reset()
         grid_world_env.render()
         done = False
+
+        if i == 10:
+            break 
 
         while not done:
             action = grid_world_env.action_space.sample()
@@ -123,4 +147,8 @@ if __name__ == "__main__":
                 print(grid_world_env.current_step)
             
             grid_world_env.render()
-        time.sleep(3)
+        time.sleep(4)
+
+    
+    #testing the network 
+

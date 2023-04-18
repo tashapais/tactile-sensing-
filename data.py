@@ -1,33 +1,67 @@
-import numpy as np
-from argparse import ArgumentParser
-import numpy as np
-from PIL import Image
-import os
-from matplotlib import pyplot as plt
-import torch
+import torch 
+import torchvision
+import torchvision.transforms as transforms
+import matplotlib.pyplot as plt
+import time 
 
 
 
-data = np.load('train_data_batch_1.npz', allow_pickle=True)
-labels, data, mean = data['labels'], data['data'], data['mean']
+class DataLoader():
+    def __init__(self, batch_size):
+        self.training_data = None 
+        self.training_data_labels = None 
+        self.classes = ('plane', 'car', 'bird', 'cat',
+           'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
+        self.batch_size = batch_size
+        self.transform = transforms.ToTensor()
+                        
+
+    def return_trainloader(self):
+        trainset = torchvision.datasets.CIFAR10(root='./data', train=True,
+                                                download=True, transform=self.transform)
+        trainloader = torch.utils.data.DataLoader(trainset, batch_size=self.batch_size,
+                                                shuffle=True, num_workers=0)
+
+        return trainloader
 
 
-data = data/np.float32(255)
-mean = mean/np.float32(255)
-data -= mean
-labels = [label-1 for label in labels]
+    def return_testloader(self):
+        testset = torchvision.datasets.CIFAR10(root='./data', train=False,
+                                       download=True, transform=self.transform)
+        testloader = torch.utils.data.DataLoader(testset, batch_size=self.batch_size,
+                                         shuffle=False, num_workers=0)
+        
+        return testloader
+    
 
-print(data.shape)
-print(len(labels))
-
-for img in data:
-    img = img.reshape((8, 8, 3))
-    print(img[(0,0)])
-    plt.imshow(img)
-    plt.show()
-    break
-
-#we have a thousand labels for this downsized version of Imagenet
-#print(labels)
-#print(len(set(labels)))
-## we have the data now let's start building the open ai gym environment
+# print("1")
+# data_loader = DataLoader(batch_size=1)
+# print("2")
+# train_loader = data_loader.return_trainloader()
+# # test_loader = data_loader.return_testloader()
+# for i, data in enumerate(train_loader, 0):
+#     # Get the inputs and labels
+#     images, labels = data
+#     # Print batch number and shape of input tensor
+#     print("The data shape of the image below")
+#     print(images.shape)
+#     print("The shape of the labels")
+#     print(labels.shape)
+#     print("The first image we have:")
+#     print(images[0], images[0].shape)
+#     print("The first label we have")
+#     print(labels[0], labels[0].shape)
+#     print("The labels and the image above are listed")
+#     print("Here are the images above")
+#     images = torch.transpose(images, 1, 2)
+#     images = torch.transpose(images, 2, 3)
+#     print("The data shape of the image below")
+#     print(images.shape)
+#     plt.imshow(torchvision.utils.make_grid(images))
+#     time.sleep(5)
+#     if i == 10:
+#         break 
+# test_iter = iter(test_loader)
+#image, label = next(train_iter)
+# print(image,type(image))
+# print(label, type(label))
