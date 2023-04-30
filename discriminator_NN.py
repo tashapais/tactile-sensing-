@@ -3,6 +3,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
+"""The discriminator works on a partially revealed image to understand where to go next. 
+"""
+
+
 
 class Discriminator_NN(nn.Module):
     def __init__(self, height, width):
