@@ -5,12 +5,8 @@ import tqdm
 import torch.optim as optim
 import os
 
-
-
 """The discriminator works on a partially revealed image to understand where to go next. 
 """
-
-
 
 class Discriminator_NN(nn.Module):
     def __init__(self, height, width, save_dir):
