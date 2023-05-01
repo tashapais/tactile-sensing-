@@ -9,6 +9,10 @@ import numpy as np
 from ppo_discrete import Scale, layer_init, Agent 
 
 
+'''
+Discriminator training, training_discimrinator is done in two main steps. 
+'''
+
 
 '''Explorer takes in observations and decides where to move next.'''
 

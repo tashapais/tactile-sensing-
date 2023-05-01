@@ -4,12 +4,14 @@ import torch.nn.functional as F
 import tqdm 
 import torch.optim as optim
 import os
+from data import DataLoader
+from logging import Logger
 
 """The discriminator works on a partially revealed image to understand where to go next. 
 """
 
 class Discriminator_NN(nn.Module):
-    def __init__(self, height, width, save_dir):
+    def __init__(self, save_dir):
         super(Discriminator_NN, self).__init__()
 
         self.conv1 = nn.Conv2d(3, 6, 5)
@@ -35,6 +37,7 @@ class Discriminator_NN(nn.Module):
                     self.fc3)
         self.lr = 0.001
         self.save_dir = save_dir
+        self.device = torch.device("mps") if torch.backends.mps.is_available() else torch.device("cpu")
 
     def forward_logprob(self, x):
         # Max pooling over a (2, 2) window 
@@ -151,3 +154,9 @@ class Discriminator_NN(nn.Module):
             log(f're-loaded model path {model_path}')
 
         return model_path, train_loss, train_acc, test_loss, test_acc, stats
+    
+if __name__ == "__main__":
+    discriminator = Discriminator_NN(save_dir='../learned_models')
+    data_loader = DataLoader(500)
+    train_loader, test_loader = data_loader.return_trainloader(), data_loader.return_testloader()
+    discriminator.learn(epochs=100, train_loader=train_loader, test_loader=test_loader, logger=Logger)
