@@ -11,33 +11,46 @@ from logging import Logger
 """
 
 class Discriminator_NN(nn.Module):
-    def __init__(self, save_dir):
+    def __init__(self, height, width, save_dir):
         super(Discriminator_NN, self).__init__()
 
-        self.conv1 = nn.Conv2d(3, 6, 5)
-        self.conv2 = nn.Conv2d(6, 16, 5)
-        
-        self.fc1 = nn.Linear(16 * 5 * 5, 120)
-        self.fc2 = nn.Linear(120, 84)
-        self.fc3 = nn.Linear(84, 10)
 
-        self.pool = nn.MaxPool2d((2, 2))
-        self.ReLU = nn.ReLU()
-        self.softmax = nn.Softmax()
-
+        self.img_height = height
+        self.img_width = width
+        #you're not working in the height and width of the image which is the original problem
         self.model = nn.Sequential(
-                    self.conv1, 
-                    self.ReLU,
-                    self.conv2,
-                    self.ReLU,
-                    self.fc1, 
-                    self.ReLU, 
-                    self.fc2, 
-                    self.ReLU,
-                    self.fc3)
+            nn.Conv2d(3, 32, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2), # output: 64 x 16 x 16
+
+            nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2), # output: 128 x 8 x 8
+
+            nn.Conv2d(128, 256, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2), # output: 256 x 4 x 4
+
+            nn.Flatten(), 
+            nn.Linear(256*4*4, 1024),
+            nn.ReLU(),
+            nn.Linear(1024, 512),
+            nn.ReLU(),
+            nn.Linear(512, 10))
+        
         self.lr = 0.001
         self.save_dir = save_dir
+
+        #change this to CUDA from NVIDIA then it'll be ok 
         self.device = torch.device("mps") if torch.backends.mps.is_available() else torch.device("cpu")
+        self.model.to(self.device)
+
 
     def forward_logprob(self, x):
         # Max pooling over a (2, 2) window 
@@ -156,7 +169,7 @@ class Discriminator_NN(nn.Module):
         return model_path, train_loss, train_acc, test_loss, test_acc, stats
     
 if __name__ == "__main__":
-    discriminator = Discriminator_NN(save_dir='../learned_models')
-    data_loader = DataLoader(500)
+    discriminator = Discriminator_NN(height=32, width=32, save_dir='../learned_models')
+    data_loader = DataLoader(batch_size=500)
     train_loader, test_loader = data_loader.return_trainloader(), data_loader.return_testloader()
     discriminator.learn(epochs=100, train_loader=train_loader, test_loader=test_loader, logger=Logger)
