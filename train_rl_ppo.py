@@ -30,7 +30,7 @@ from dowel import logger, tabular
 import socket
 import torchvision.transforms as T
 from floating_finger_env import FloatingFingerEnv
-from gird_world_env import GridWorldEnv
+from grid_world_env import GridWorldEnv
 import torchvision
 
 cv2.ocl.setUseOpenCL(False)
@@ -153,7 +153,7 @@ def get_args():
     args.save_dir = os.path.join(args.save_dir, args.exp_name)
     args.log_dir = os.path.join(args.log_dir, args.exp_name)
 
-    args.batch_size = int(args.num_envs * args.num_steps)
+    args.batch_size = int(args.num_envs * args.num_steps) #num envs, and the num_steps specified by the user
     args.minibatch_size = int(args.batch_size // args.n_minibatch)
 
     return args
@@ -553,7 +553,7 @@ if __name__ == "__main__":
     next_obs = envs.reset()
     next_done = torch.zeros(args.num_envs).to(device)
 
-    num_updates = args.total_timesteps // args.batch_size   # total number of updates
+    num_updates = args.total_timesteps // args.batch_size   # total number of updates, batch_size is number of 
     explore_updates = args.explorer_steps // args.batch_size    # how many updates before we train the discriminator
     episode = 0
     episode_reward_queue = deque(maxlen=args.running_stat_len)
@@ -569,84 +569,10 @@ if __name__ == "__main__":
     discriminator_test_loss = None
     discriminator_test_acc = None
 
-    #here we are training the disciminrator
+    #loop is for explorer
     for update in range(1, num_updates + 1):
-        train_discdriminator_f()
-        # Annealing the rate if instructed to do so.
-        if args.anneal_lr:
-            if args.train_discriminator:
-                # Each time we train the explorer, we strat from the original learning rate and then anneal
-                lrnow = linear_schedule(args.explorer_lr, args.explorer_lr / 10, explore_updates,
-                                        update % explore_updates)
-            else:
-                lrnow = linear_schedule(args.explorer_lr, args.explorer_lr / 10, num_updates, update)
-            optimizer.param_groups[0]['lr'] = lrnow
-
-        # TRY NOT TO MODIFY: prepare the execution of the game.
-        for step in range(0, args.num_steps):
-            global_step += 1 * args.num_envs
-            obs[step] = next_obs
-            dones[step] = next_done
-
-            # ALGO LOGIC: put action logic here
-            with torch.no_grad():
-                values[step] = agent.get_value(obs[step]).flatten()
-                move, logproba, _ = agent.get_move(obs[step])
-
-            moves[step] = move
-            logprobs[step] = logproba
-
-            # STEP!
-            # all in one policy
-            if args.all_in_one:
-                action = []
-                for i in range(args.num_envs):
-                    if 0 <= move[i].item() < 4:
-                        action.append({
-                            'move': move[i].item(),
-                            'prediction': 0,
-                            'max_prob': 0.1,
-                            'probs': np.full(10, 0.1),
-                            'done': False
-                        })
-                    else:
-                        prediction = move[i].item() - 4
-                        probs = np.zeros(10)
-                        probs[prediction] = 1
-                        action.append({
-                            'move': 0,
-                            'prediction': prediction,
-                            'max_prob': 1,
-                            'probs': probs,
-                            'done': True
-                        })
-            else:
-                # build the actions to the envs
-                prediction, max_prob, probs = discriminator.predict(obs[step].cpu().numpy())
-
-                # angles = envs.get_attr('angle')
-                # canonicals = mu.rotate_imgs(obs[step].cpu().numpy(), [-a for a in angles])
-                # prediction, max_prob, probs = discriminator.predict(canonicals)
-
-                # action is a list of dictionary
-                action = [{'move': move[i].item(),
-                           'prediction': prediction[i],
-                           'max_prob': max_prob[i],
-                           'probs': probs[i],
-                           'done': 1 if max_prob[i] >= args.terminal_confidence else 0
-                           } for i in range(args.num_envs)]
-
-            next_obs, rs, ds, infos = envs.step(action)
-            add_data_f()
-
-            # making sure rs is flattened -> from (8, 1) to (8, ) and next_done is a tensor
-            rewards[step], next_done = rs.view(-1), torch.Tensor(ds).to(device)
-            # print([(env.prediction, env.num_gt) for env in envs.venv.envs])
-
-            # write log
-            write_explorer_log()
-
-        # ---------------- explorer batch data collection finished --------------- #
+        
+        
         # bootstrap reward if not done. reached the batch limit
         with torch.no_grad():
             last_value = agent.get_value(next_obs.to(device)).reshape(1, -1)
