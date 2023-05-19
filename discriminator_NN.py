@@ -13,11 +13,8 @@ from logging import Logger
 class Discriminator_NN(nn.Module):
     def __init__(self, height, width, save_dir):
         super(Discriminator_NN, self).__init__()
-
-
         self.img_height = height
         self.img_width = width
-        #you're not working in the height and width of the image which is the original problem
         self.model = nn.Sequential(
             nn.Conv2d(3, 32, kernel_size=3, padding=1),
             nn.ReLU(),
@@ -47,7 +44,7 @@ class Discriminator_NN(nn.Module):
         self.lr = 0.001
         self.save_dir = save_dir
 
-        #change this to CUDA from NVIDIA then it'll be ok 
+        #change this to NVIDIA
         self.device = torch.device("mps") if torch.backends.mps.is_available() else torch.device("cpu")
         self.model.to(self.device)
 
@@ -172,4 +169,4 @@ if __name__ == "__main__":
     discriminator = Discriminator_NN(height=32, width=32, save_dir='../learned_models')
     data_loader = DataLoader(batch_size=500)
     train_loader, test_loader = data_loader.return_trainloader(), data_loader.return_testloader()
-    discriminator.learn(epochs=100, train_loader=train_loader, test_loader=test_loader, logger=Logger)
+    discriminator.learn(epochs=100, train_loader=train_loader, test_loader=test_loader)

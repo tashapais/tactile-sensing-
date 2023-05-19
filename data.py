@@ -30,8 +30,6 @@ class DataLoader():
     def return_trainloader(self):
         trainset = torchvision.datasets.CIFAR10(root='../data', train=True,
                                                 download=True, transform=self.transform)
-        
-        trainset = torch.utils
         trainloader = torch.utils.data.DataLoader(trainset, batch_size=self.batch_size,
                                                 shuffle=True, num_workers=0)
 
