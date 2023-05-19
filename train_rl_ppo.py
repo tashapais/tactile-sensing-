@@ -4,15 +4,13 @@ import misc_utils as mu
 from collections import deque
 import cv2
 import numpy as np
-
-cv2.ocl.setUseOpenCL(False)
 import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 from torch.distributions.categorical import Categorical
 from torch.utils.tensorboard import SummaryWriter
-
+import torchvision.transforms as transforms
 import argparse
 from distutils.util import strtobool
 import numpy as np
@@ -32,7 +30,10 @@ from dowel import logger, tabular
 import socket
 import torchvision.transforms as T
 from floating_finger_env import FloatingFingerEnv
-from open_ai_gym import GridWorldEnv
+from gird_world_env import GridWorldEnv
+import torchvision
+
+cv2.ocl.setUseOpenCL(False)
 
 def get_args():
     parser = argparse.ArgumentParser(description='PPO agent')
@@ -167,43 +168,6 @@ def make_env(seed):
         env.observation_space.seed(seed)
         return env
     return thunk
-    
-    # def thunk():
-
-    #     env = FloatingFingerEnv(
-    #         env_id=env_id,
-    #         render_pybullet=args.render_pybullet,
-    #         render_ob=args.render_ob,
-    #         debug=args.debug,
-    #         reward_type=args.reward_type,
-    #         reward_scale=args.reward_scale,
-    #         exp_knob=args.exp_knob,
-    #         threshold=args.terminal_confidence,
-    #         start_on_border=args.start_on_border,
-    #         num_orientations=args.num_orientations,
-    #         translate=args.translate,
-    #         translate_range=args.translate_range,
-    #         max_x=max_x,
-    #         max_y=max_y,
-    #         step_size=step_size,
-
-    #         object_scale=scale,
-    #         finger_height=finger_height,
-    #         dataset=args.dataset,
-    #         use_correctness=use_correctness,
-    #         sensor_noise=args.sensor_noise
-    #     )
-    #     env = gym.wrappers.RecordEpisodeStatistics(env)
-    #     env.seed(seed)
-    #     env.action_space.seed(seed)
-    #     env.observation_space.seed(seed)
-    #     return env
-
-    # return thunk
-
-
-#make the environment from above using the data we already have 
-
 
 def train_discdriminator_f_dash():
     global next_obs
@@ -552,7 +516,10 @@ if __name__ == "__main__":
                                                    discriminator_path=args.discriminator_path,
                                                    lr=args.discriminator_lr)
         transform = T.RandomRotation((0, 360)) if args.rotate else None
-        varied_dataset = VariedMNISTDataset(buffer_size=args.buffer_size, height=height, width=width, transform=transform)
+        varied_dataset = torchvision.datasets.CIFAR10(root='../data', train=True,
+                                                download=True, transform= transforms.Compose(
+    [transforms.ToTensor(),
+     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]))
         varied_dataset.clean_data()
 
     # we need the true multiprocessing for pybullet environments. Otherwise, you need to set the physics id correctly for each pybullet command
