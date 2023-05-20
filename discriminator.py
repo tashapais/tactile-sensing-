@@ -305,6 +305,7 @@ class DiscriminatorNet(nn.Module):
     """
     model and input need to be on the same device
     https://github.com/pytorch/examples/blob/master/mnist/main.py
+    configured for b/w images not rgb
     """
 
     def __init__(self, device, height, width):
@@ -312,22 +313,36 @@ class DiscriminatorNet(nn.Module):
         self.height = height
         self.width = width
 
-        if self.width == self.height == 50:
-            self.conv1 = nn.Conv2d(1, 32, 3, 1)
-            self.conv2 = nn.Conv2d(32, 64, 3, 1)
+        # if self.width == self.height == 50:
+        #     self.conv1 = nn.Conv2d(1, 32, 3, 1)
+        #     self.conv2 = nn.Conv2d(32, 64, 3, 1)
+        #     self.dropout1 = nn.Dropout(0.25)
+        #     self.dropout2 = nn.Dropout(0.5)
+        #     self.fc1 = nn.Linear(33856, 128)
+        #     self.fc2 = nn.Linear(128, 10)
+        # elif self.width == self.height == 28:
+        #     self.conv1 = nn.Conv2d(1, 32, 3, 1)
+        #     self.conv2 = nn.Conv2d(32, 64, 3, 1)
+        #     self.dropout1 = nn.Dropout(0.25)
+        #     self.dropout2 = nn.Dropout(0.5)
+        #     self.fc1 = nn.Linear(9216, 128)
+        #     self.fc2 = nn.Linear(128, 10)
+        
+        if self.width == self.height == 32:
+            #n, 3, 32, 32
+            self.conv1 = nn.Conv2d(3, 96, 3, 1)
+            #n, 96, 30, 30 
+            self.conv2 = nn.Conv2d(96, 192, 3, 2)
+            #n, 192, 14, 14
             self.dropout1 = nn.Dropout(0.25)
+            #n, 192, 14, 14 x 1/4
             self.dropout2 = nn.Dropout(0.5)
-            self.fc1 = nn.Linear(33856, 128)
+            #n, 192, 14, 14 x 1/4 x 1/2
+            self.fc1 = nn.Linear(4704, 128)
             self.fc2 = nn.Linear(128, 10)
-        elif self.width == self.height == 28:
-            self.conv1 = nn.Conv2d(1, 32, 3, 1)
-            self.conv2 = nn.Conv2d(32, 64, 3, 1)
-            self.dropout1 = nn.Dropout(0.25)
-            self.dropout2 = nn.Dropout(0.5)
-            self.fc1 = nn.Linear(9216, 128)
-            self.fc2 = nn.Linear(128, 10)
-        elif self.width == self.height == 60:
-            # architecture (3)
+
+        # elif self.width == self.height == 60:
+        #     # architecture (3)
             # a much bigger one, without dropout
             # # n, 1, 60, 60
             # self.conv1 = nn.Conv2d(1, 64, 3, 1)
