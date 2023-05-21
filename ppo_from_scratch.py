@@ -578,7 +578,7 @@ if __name__ == "__main__":
                 if approx_kl > args.target_kl:
                     break
             if args.kle_rollback:
-                if (b_logprobs[minibatch_ind] - agent.get_move(b_obs[minibatch_ind], b_actions.long()[minibatch_ind])[
+                if (b_logprobs[minibatch_ind] - agent.get_move(b_obs[minibatch_ind], b_moves.long()[minibatch_ind])[
                     1]).mean() > args.target_kl:
                     agent.load_state_dict(target_agent.state_dict())
                     break
