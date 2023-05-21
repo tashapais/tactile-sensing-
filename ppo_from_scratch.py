@@ -625,4 +625,3 @@ if __name__ == "__main__":
     envs.close()
     writer.close()
     logger.remove_all()
-
