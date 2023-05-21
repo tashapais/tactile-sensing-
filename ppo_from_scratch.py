@@ -247,15 +247,14 @@ def write_explorer_log():
                            f"length={episode_length}, success={episode_success}")
 
 
-def train_discriminator(discriminator,
-                        dataset, 
-                        agent, 
-                        discriminator_data_batch, 
-                        update,
-                        explore_updates,
-                        next_obs,
-                        logger,
-                        writer):
+def train_discriminator():
+    global next_obs
+    global discriminator_data_batch
+    global discriminator_path
+    global discriminator_train_loss
+    global discriminator_train_acc
+    global discriminator_test_loss
+    global discriminator_test_acc
     if args.train_discriminator:
         if args.collect_initial_batch and discriminator_data_batch == 0:
             # collect and train on first batch of data
@@ -288,14 +287,14 @@ def train_discriminator(discriminator,
                         imgs = mu.generate_rotated_imgs(mu.get_discriminator_input(info['ob']),
                                                         num_rotations=args.num_rotations)
                         # imgs = mu.rotate_imgs(imgs, [-info['angle']])
-                        dataset.add_data(imgs,[info['num_gt']] * args.num_rotations)
+                        dataset.add_data(imgs,
+                                                [info['num_gt']] * args.num_rotations)
                         pbar.update(args.num_rotations)
                     if len(dataset) == dataset.buffer_size:
                         break
             pbar.close()
             # reset the next_obs so that the RL training does not start with highly revealed observations from the random policy
             next_obs = envs.reset()
-            return next_obs
         if len(dataset) >= dataset.buffer_size and (update - 1) % explore_updates == 0:
             # train discriminator
             logger.log(str(len(dataset)))
@@ -337,12 +336,10 @@ def train_discriminator(discriminator,
                     }
                     wandb.log(data_to_log)
             discriminator_data_batch += 1
-            
-            return (discriminator_path, discriminator_train_loss, discriminator_train_acc, discriminator_test_loss, discriminator_test_acc)
+
+
 
 HEIGHT = WIDTH = 32
-
-
 if __name__ == "__main__":
     args = parse_args()
 
@@ -422,15 +419,7 @@ if __name__ == "__main__":
     discriminator_test_acc = None
     
     for update in range(1, num_updates+1):
-        train_discriminator(discriminator=discriminator,
-                            dataset=dataset,
-                            agent=agent,
-                            discriminator_data_batch=discriminator_data_batch,
-                            update=update,
-                            explore_updates=explore_updates,
-                            next_obs=next_obs,
-                            logger=logger,
-                            writer=writer)
+        train_discriminator()
         
         if args.anneal_lr:
             if args.train_discriminator:
