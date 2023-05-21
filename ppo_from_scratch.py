@@ -25,7 +25,6 @@ from dowel import logger
 def parse_args():
     parser = argparse.ArgumentParser()
     parser = argparse.ArgumentParser(description='PPO agent')
-    # Common arguments
     parser.add_argument('--exp_name', type=str, default=os.path.basename(__file__).rstrip(".py"),
                         help='the name of this experiment')
     parser.add_argument('--env_name', type=str, default="floating_finger",
@@ -53,8 +52,6 @@ def parse_args():
     parser.add_argument('--log_interval', type=int, default=10,
                         help='Log a policy every log_interval episodes (default: 10)')
     parser.add_argument('--save_discriminator_data', type=lambda x: bool(strtobool(x)), default=False, nargs='?', const=True)
-
-    # Algorithm specific arguments
     parser.add_argument('--n_minibatch', type=int, default=4,
                         help='the number of mini batch')
     parser.add_argument('--num_envs', type=int, default=16,

@@ -9,7 +9,6 @@ import misc_utils as mu
 import copy
 from discriminator_dataset import VariedMNISTDataset
 import tqdm
-import icp
 import os
 
 

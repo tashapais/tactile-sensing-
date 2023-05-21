@@ -5,7 +5,6 @@ import os
 import csv
 import pybullet_data
 import pybullet as p
-
 import pybullet_utils as pu
 import pandas as pd
 from math import radians, cos, sin, sqrt, exp
@@ -22,6 +21,7 @@ from scipy.ndimage import rotate
 import math
 import torch
 from torch.utils.data import Dataset, DataLoader, random_split
+
 
 # the definition of these directions are with respect to the occupancy grid
 move_map = {
@@ -519,14 +519,14 @@ def get_current_loc(ob):
 
 def get_discriminator_input(obs):
     if obs.ndim == 3:
-        # (1, height, width)
+        # (3, height, width)
         current_loc = get_current_loc(obs)
         # discriminator does not care about agent location
         discriminator_input = copy.deepcopy(obs)
         discriminator_input[0][current_loc] = black \
             if discriminator_input[0][current_loc] == current_black else white
     elif obs.ndim == 4:
-        # (n, 1, height, width)
+        # (n, 3, height, width)
         n = obs.shape[0]
         discriminator_input = [get_discriminator_input(obs[i]) for i in range(n)]
         discriminator_input = np.stack(discriminator_input, axis=0)
@@ -926,27 +926,6 @@ def rotate_along_point(theta, x, y):
         [np.sin(theta), np.cos(theta), -x*np.sin(theta) - y*np.cos(theta) + y],
         [0, 0, 1]]
     )
-
-
-def icp_with_random_init_ori(src, dst, num_ori):
-    angles = np.linspace(0, 360, num_ori, endpoint=False)
-    errors = []
-    iters = []
-    Ts = []
-    for a in angles:
-        theta = math.radians(a)
-        init_pose = rotate_along_point(theta, 0.15, 0.15)
-        T, distances, i = icp.icp(src, dst, init_pose=init_pose, max_iterations=1000, tolerance=10e-7)
-        error = np.mean(distances)
-        Ts.append(T)
-        errors.append(error)
-        iters.append(i)
-    min_error = np.min(errors)
-    angle = angles[np.argmin(errors)]
-    iter = iters[np.argmin(errors)]
-    T = Ts[np.argmin(errors)]
-    return T, min_error, iter, angle
-
 
 def expand_occupancy_grid(g, times=5):
     """
