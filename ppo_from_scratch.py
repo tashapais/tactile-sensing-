@@ -152,12 +152,8 @@ def add_data_f():
     if args.train_discriminator:
         for (i, info, done) in zip(range(len(infos)), infos, ds):
             if info['discover'] and random.random() <= args.add_prob:
-                # only next_obs is from the reset of the next episode and reset only returns obs
-                # without info
-                imgs = mu.generate_rotated_imgs(mu.get_discriminator_input(info['ob']),
-                                                num_rotations=args.num_rotations)
-                # imgs = mu.rotate_imgs(imgs, [-info['angle']])
-                dataset.add_data(imgs, [info['num_gt']] * args.num_rotations)
+                imgs = info['ob']               
+                dataset.add_data(imgs, [info['label']] )
 
 
 def write_explorer_log():
@@ -279,14 +275,9 @@ def train_discriminator():
                 next_obs, rs, ds, infos = envs.step(action)
                 for (i, info, done) in zip(range(len(infos)), infos, ds):
                     if info['discover']:
-                        # only next_obs is from the reset of the next episode and reset only returns obs
-                        # without info
-                        imgs = mu.generate_rotated_imgs(mu.get_discriminator_input(info['ob']),
-                                                        num_rotations=args.num_rotations)
-                        # imgs = mu.rotate_imgs(imgs, [-info['angle']])
-                        dataset.add_data(imgs,
-                                                [info['num_gt']] * args.num_rotations)
-                        pbar.update(args.num_rotations)
+                        imgs = info['ob']
+                        dataset.add_data(imgs, [info['label']] )
+                        pbar.update(1)
                     if len(dataset) == dataset.buffer_size:
                         break
             pbar.close()

@@ -38,7 +38,7 @@ left = 3
 
 black = 0
 white = 255
-unexplored = 127
+unexplored = 255
 current_black = 63
 current_white = 191
 

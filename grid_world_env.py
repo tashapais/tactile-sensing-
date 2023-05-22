@@ -9,6 +9,7 @@ import time
 from data import DataLoader
 import torchvision
 import torch 
+from copy import deepcopy
 
 action_map = {
     0: 'up',
@@ -35,6 +36,8 @@ class GridWorldEnv(gym.Env):
         self.img_index = None
         self.img_visualization = None
         self.renderer = None
+        self.discover = True
+
 
         self.explorer = None 
         self.discriminator = None 
@@ -63,7 +66,13 @@ class GridWorldEnv(gym.Env):
         return ob
 
     def step(self, action):
-        new_loc = self.compute_next_loc(action)
+        move = action['move']
+        prediction = action['prediction']
+        max_prob = action['max_prob']
+        probs = action['probs']
+        done = action['done']
+
+        new_loc = self.compute_next_loc(move)
         pixel_value = self.img_gt[tuple(new_loc)]
         ob = (pixel_value, (new_loc[0], new_loc[1]))
         self.img_visualization[tuple(new_loc)] = np.array([0, 0, 0]) if np.array_equal(pixel_value, np.array([0, 0, 0])) else pixel_value
@@ -71,7 +80,10 @@ class GridWorldEnv(gym.Env):
         self.current_loc = new_loc
 
         reward = 1
-        info = {}
+        info = {'discover': self.discover,
+                'ob': deepcopy(self.img_visualization),
+                'label': self.label,
+                'prediction':prediction}
         done = self.current_step == self.max_ep_len
         return ob, reward, done, info
 
