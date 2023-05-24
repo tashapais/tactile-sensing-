@@ -337,13 +337,6 @@ def wrap_pytorch(env):
 #the explorer agenet
 class Agent(nn.Module):
     def __init__(self, action_dim, device, frames=1, img_size=32):
-        if img_size == 50:
-            last_layer_size = 800
-        elif img_size == 60:
-            last_layer_size = 1152
-        else:
-            raise TypeError
-
         super(Agent, self).__init__()
         self.device = device
 
