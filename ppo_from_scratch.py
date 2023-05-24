@@ -27,8 +27,6 @@ def parse_args():
     parser = argparse.ArgumentParser(description='PPO agent')
     parser.add_argument('--exp_name', type=str, default=os.path.basename(__file__).rstrip(".py"),
                         help='the name of this experiment')
-    parser.add_argument('--env_name', type=str, default="floating_finger",
-                        help='the id of the gym environment')
     parser.add_argument('--explorer_lr', type=float, default=0.001,
                         help='the learning rate of the explorer')
     parser.add_argument('--discriminator_lr', type=float, default=0.001,
@@ -37,8 +35,6 @@ def parse_args():
                         help='seed of the experiment')
     parser.add_argument('--total_timesteps', type=int, default=1000000000,
                         help='total timesteps of the experiments')
-    parser.add_argument('--torch_deterministic', type=lambda x: bool(strtobool(x)), default=True, nargs='?', const=True,
-                        help='if toggled, `torch.backends.cudnn.deterministic=False`')
     parser.add_argument('--cuda', type=lambda x: bool(strtobool(x)), default=True, nargs='?', const=True,
                         help='if toggled, cuda will not be enabled by default')
     parser.add_argument('--prod_mode', type=lambda x: bool(strtobool(x)), default=True, nargs='?', const=True,
@@ -52,8 +48,6 @@ def parse_args():
     parser.add_argument('--log_interval', type=int, default=10,
                         help='Log a policy every log_interval episodes (default: 10)')
     parser.add_argument('--save_discriminator_data', type=lambda x: bool(strtobool(x)), default=False, nargs='?', const=True)
-    parser.add_argument('--n_minibatch', type=int, default=4,
-                        help='the number of mini batch')
     parser.add_argument('--num_envs', type=int, default=16,
                         help='the number of parallel game environment')
     parser.add_argument('--num_steps', type=int, default=128,
@@ -86,11 +80,6 @@ def parse_args():
                         help="Toggle learning rate annealing for policy and value networks")
     parser.add_argument('--clip_vloss', type=lambda x: bool(strtobool(x)), default=True, nargs='?', const=True,
                         help='Toggles wheter or not to use a clipped loss for the value function, as per the paper.')
-
-    # my arguments
-    # important arguments other than these: exp_name, prod_mode
-    parser.add_argument('--render_pybullet', type=lambda x: bool(strtobool(x)), default=False, nargs='?', const=True)
-    parser.add_argument('--render_ob', type=lambda x: bool(strtobool(x)), default=False, nargs='?', const=True)
     parser.add_argument('--multiprocess', type=lambda x: bool(strtobool(x)), default=True, nargs='?', const=True)
     parser.add_argument('--debug', type=lambda x: bool(strtobool(x)), default=False, nargs='?', const=True)
     parser.add_argument('--log_dir', type=str, default='logs')
@@ -100,31 +89,20 @@ def parse_args():
     parser.add_argument('--explorer_path', type=str)
     parser.add_argument('--train_discriminator', type=lambda x: bool(strtobool(x)), default=False, nargs='?',
                         const=True)
-    parser.add_argument('--max_ep_len', type=int, default=2000)
     parser.add_argument('--buffer_size', type=int, default=1000000)
     parser.add_argument('--explorer_steps', type=int, default=200000)
-    parser.add_argument('--tactile_sim', action='store_true', default=False)
     parser.add_argument('--add_prob', type=float, default=1.0)
     parser.add_argument('--save_length', type=float, default=2000)
     parser.add_argument('--save_success', type=float, default=0.0)
     parser.add_argument('--terminal_confidence', type=float, default=0.98)
-    parser.add_argument('--start_on_border', type=lambda x: bool(strtobool(x)), default=True, nargs='?', const=True)
     parser.add_argument('--discriminator_epochs', type=int, default=15)
     parser.add_argument('--running_stat_len', type=int, default=100)
-    parser.add_argument('--reward_type', type=str, default='sparse')
-    parser.add_argument('--reward_scale', type=float, default=1)
-    parser.add_argument('--exp_knob', type=int)
-    parser.add_argument('--num_orientations', type=int, default=-1)
-    parser.add_argument('--num_rotations', type=int, default=1)
     parser.add_argument('--dataset', type=str, default='extruded_polygons_r_0.1_s_8_h_0.05', help='the dataset to use')
-    parser.add_argument('--use_correctness', type=lambda x: bool(strtobool(x)), default=False, nargs='?', const=True)
     parser.add_argument('--collect_initial_batch', type=lambda x: bool(strtobool(x)), default=True, nargs='?', const=True,
                         help='whether we collect an initial batch of data to train the discriminator before updating the explorer')
     parser.add_argument('--initial_batch_ep_len', type=float, default=2000)
     parser.add_argument('--initial_batch_policy', type=str, default='random')
     parser.add_argument('--rotate', type=lambda x: bool(strtobool(x)), default=False, nargs='?', const=True)
-    parser.add_argument('--translate', type=lambda x: bool(strtobool(x)), default=True, nargs='?', const=True)
-    parser.add_argument('--translate_range', type=float, default=0.01)
     parser.add_argument('--sensor_noise', type=float, default=0)
     parser.add_argument('--all_in_one', type=lambda x: bool(strtobool(x)), default=False, nargs='?', const=True,
                         help='all in one policy: the agent output everything and discriminator is not needed')
@@ -248,6 +226,7 @@ def train_discriminator():
     global discriminator_train_acc
     global discriminator_test_loss
     global discriminator_test_acc
+    """Writing your own code... simple stuff and writing and download the newest clearl"""
     if args.train_discriminator:
         if args.collect_initial_batch and discriminator_data_batch == 0:
             # collect and train on first batch of data
