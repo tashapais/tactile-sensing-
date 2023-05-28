@@ -20,7 +20,6 @@ from distutils.util import strtobool
 import numpy as np
 import gym
 from gym.wrappers import TimeLimit, Monitor
-import pybullet_envs
 from gym.spaces import Discrete, Box, MultiBinary, MultiDiscrete, Space
 import time
 import random
@@ -339,11 +338,10 @@ class Agent(nn.Module):
     def __init__(self, action_dim, device, frames=1, img_size=32):
         super(Agent, self).__init__()
         self.device = device
-
-        # the data to the agent is raw RGB image instead of normalized ones
         self.preprocess = Preprocess()
-        self.conv1 = nn.Conv2d(1, 32, 3, 1)
-        self.conv2 = nn.Conv2d(32, 64, 3, 1)
+        #n, 32, 32, 3
+        self.conv1 = nn.Conv2d(3, 96, 3, 1)
+        self.conv2 = nn.Conv2d(96, 192, 3, 1)
         self.fc1 = nn.Linear(50176, 128)
 
         self.actor = layer_init(nn.Linear(128, action_dim), std=0.01)
@@ -353,6 +351,7 @@ class Agent(nn.Module):
 
     def forward(self, x):
         x = self.preprocess(x)
+        print(x.shape)
         x = self.conv1(x)
         x = F.relu(x)
         x = self.conv2(x)

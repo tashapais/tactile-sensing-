@@ -1,7 +1,6 @@
 import gym 
 import numpy as np 
 import misc_utils as mu 
-import pybullet_utils as pu
 from math import radians
 from gym.utils import seeding
 import matplotlib.pyplot as plt
@@ -63,7 +62,7 @@ class GridWorldEnv(gym.Env):
         ob = (pixel_value, (initial_loc[0], initial_loc[1]))
         self.current_loc = initial_loc
         self.current_step += 1
-        return ob
+        return self.img_visualization, ob 
 
     def step(self, action):
         move = action['move']
@@ -81,7 +80,7 @@ class GridWorldEnv(gym.Env):
 
         reward = 1
         info = {'discover': self.discover,
-                'ob': deepcopy(self.img_visualization),
+                'img': deepcopy(self.img_visualization),
                 'label': self.label,
                 'prediction':prediction}
         done = self.current_step == self.max_ep_len
