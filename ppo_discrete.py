@@ -341,9 +341,10 @@ class Agent(nn.Module):
         self.preprocess = Preprocess()
         #n, 32, 32, 3
         self.conv1 = nn.Conv2d(3, 96, 3, 1)
+        #n, 96, 30, 30 
         self.conv2 = nn.Conv2d(96, 192, 3, 1)
-        self.fc1 = nn.Linear(50176, 128)
-
+        #n, 192, 28, 28 
+        self.fc1 = nn.Linear(37632, 128)
         self.actor = layer_init(nn.Linear(128, action_dim), std=0.01)
         self.critic = layer_init(nn.Linear(128, 1), std=1)
 
@@ -351,13 +352,12 @@ class Agent(nn.Module):
 
     def forward(self, x):
         x = self.preprocess(x)
-        print(x.shape)
         x = self.conv1(x)
         x = F.relu(x)
         x = self.conv2(x)
         x = F.relu(x)
         x = F.max_pool2d(x, 2)
-        x = torch.flatten(x, 1)
+        x = torch.flatten(x)
         x = self.fc1(x)
         x = F.relu(x)
         return x

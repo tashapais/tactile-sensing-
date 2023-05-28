@@ -2,14 +2,14 @@ from discriminator_dataset import ImageDataset
 import torch
 from ppo_discrete import Agent
 import tqdm
-from grid_world_env import GridWorldEnv
+from grid_world_env_torch import GridWorldEnv
 from data import DataLoader
 import matplotlib.pyplot as plt
 
 HEIGHT, WIDTH = 32, 32
 NUM_EPISODES = 1000
 MAX_EP_LEN = 5000
-BUFFER_SIZE = 1000000
+BUFFER_SIZE = 1000
 
 class CoTrainingAlgorithm():
     def __init__(self):
@@ -28,13 +28,11 @@ class CoTrainingAlgorithm():
                                     label=label[0],
                                     image=original_image[0])
             img, ob = grid_world_env.reset()
-            img = torch.tensor(img)
-            print(img.shape)
+            img = img.to(self.device)
             done = False
             while not done:
-                action = agent.get_move(img)
-                ob, reward, done, info = grid_world_env.step(action)
-                img = info['img']
+                action, log_prob, entropy = agent.get_move(img)
+                done, img = grid_world_env.step(action)
                 cifar_dataset.add_data(img, label)
                 pbar.update(1)
                 if len(cifar_dataset) == cifar_dataset.buffer_size:
