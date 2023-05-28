@@ -26,7 +26,7 @@ class ImageDataset(Dataset):
         self.buffer_size = buffer_size
         self.height = height
         self.width = width
-        self.imgs = np.zeros((self.buffer_size, 1, height, width), dtype=np.uint8)
+        self.imgs = np.zeros((self.buffer_size, 3, height, width), dtype=np.uint8)
         self.nums = np.zeros((self.buffer_size, 1), dtype=np.int64)
         self.len = 0
         self.pointer = 0  # the starting index (inclusive) to add the data
@@ -60,7 +60,7 @@ class ImageDataset(Dataset):
         :param new_nums: (n, 1) or list of int
         :return:
         """
-        new_imgs = np.array(new_imgs)
+        new_imgs = np.array(new_imgs.cpu())
         new_nums = np.array(new_nums)
 
         if new_nums.ndim == 1:
@@ -72,6 +72,7 @@ class ImageDataset(Dataset):
         n = new_imgs.shape[0]
 
         if self.pointer + n < self.buffer_size:
+            print(new_imgs.shape)
             self.imgs[self.pointer:self.pointer+n, ...] = new_imgs
             self.nums[self.pointer:self.pointer+n, ...] = new_nums
             self.pointer = self.pointer + n
