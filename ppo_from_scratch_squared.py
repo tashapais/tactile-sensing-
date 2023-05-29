@@ -30,16 +30,13 @@ class CoTrainingAlgorithm():
             img, ob = grid_world_env.reset()
             img = img.to(self.device)
             done = False
-            while not done:
+            while not done and not len(cifar_dataset) == cifar_dataset.buffer_size:
                 action, log_prob, entropy = agent.get_move(img)
                 done, img = grid_world_env.step(action)
                 img = img.to(self.device)
                 cifar_dataset.add_data(torch.unsqueeze(img,dim=0), label)
                 pbar.update(1)
-                if len(cifar_dataset) == cifar_dataset.buffer_size:
-                        break
         pbar.close()
-
         return cifar_dataset
 
 
