@@ -5,6 +5,8 @@ import tqdm
 from grid_world_env_torch import GridWorldEnv
 from data import DataLoader
 import matplotlib.pyplot as plt
+import misc_utils as mu 
+from logger import logger
 
 HEIGHT, WIDTH = 32, 32
 NUM_EPISODES = 1000
@@ -15,6 +17,11 @@ class CoTrainingAlgorithm():
     def __init__(self):
         self.device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
         self.dataloader = DataLoader(batch_size=1)
+        self.discriminator_dataset = None
+        self.discriminator = mu.construct_discriminator(discriminator_type="learned",
+                                                   height=HEIGHT,
+                                                   width=WIDTH,
+                                                   lr=0.001)
         
     def generate_training_data(self):
         cifar_dataset = ImageDataset(buffer_size=BUFFER_SIZE, height=HEIGHT, width=WIDTH)
@@ -37,9 +44,24 @@ class CoTrainingAlgorithm():
                 cifar_dataset.add_data(torch.unsqueeze(img,dim=0), label)
                 pbar.update(1)
         pbar.close()
-        return cifar_dataset
+        self.discriminator_dataset = cifar_dataset
+    
+
+    def train_discriminator(self):
+        if self.discriminator_dataset != None:
+            train_loader, test_loader = mu.construct_loaders(self.discriminator_dataset, split=0.2)
+            discriminator_path, discriminator_train_loss, discriminator_train_acc, discriminator_test_loss, discriminator_test_acc, stats = self.discriminator.learn(
+                epochs=15,
+                train_loader=train_loader,
+                test_loader=test_loader,
+                logger=logger)
+            print(stats)
+        else:
+            raise Exception("Discriminator dataset not configured yet")
+
 
 
 if __name__ == "__main__":
     algo = CoTrainingAlgorithm()
     dataset = algo.generate_training_data()
+    algo.train_discriminator()

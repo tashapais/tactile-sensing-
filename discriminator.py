@@ -3,11 +3,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from torch.optim.lr_scheduler import StepLR
-import numpy as np
+import numpy as np 
 import os
 import misc_utils as mu
 import copy
-from discriminator_dataset import VariedMNISTDataset
 import tqdm
 import os
 
@@ -412,7 +411,7 @@ class DiscriminatorNet(nn.Module):
 
     def forward(self, x):
         # this function returns the logits
-        if self.width == self.height == 50 or self.width == self.height == 28:
+        if self.width == self.height == 50 or self.width == self.height == 32:
             x = self.conv1(x)
             x = F.relu(x)
             x = self.conv2(x)
