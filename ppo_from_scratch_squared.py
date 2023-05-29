@@ -53,8 +53,7 @@ class CoTrainingAlgorithm():
             discriminator_path, discriminator_train_loss, discriminator_train_acc, discriminator_test_loss, discriminator_test_acc, stats = self.discriminator.learn(
                 epochs=15,
                 train_loader=train_loader,
-                test_loader=test_loader,
-                logger=logger)
+                test_loader=test_loader)
             print(stats)
         else:
             raise Exception("Discriminator dataset not configured yet")

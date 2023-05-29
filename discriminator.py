@@ -145,7 +145,7 @@ class LearnedDiscriminator:
         return model_path, train_loss, train_acc, test_loss, test_acc, stats
 
     def train_epoch(self, epoch, data_loader, logger=None):
-        log = logger.log if logger is not None else print
+        log = print
         pbar = tqdm.tqdm(total=len(data_loader.dataset))
         self.model.train()
         correct = 0
@@ -336,7 +336,7 @@ class DiscriminatorNet(nn.Module):
             #n, 192, 14, 14 x 1/4
             self.dropout2 = nn.Dropout(0.5)
             #n, 192, 14, 14 x 1/4 x 1/2
-            self.fc1 = nn.Linear(4704, 128)
+            self.fc1 = nn.Linear(9408, 128)
             self.fc2 = nn.Linear(128, 10)
 
         # elif self.width == self.height == 60:
