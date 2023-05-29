@@ -9,9 +9,8 @@ import misc_utils as mu
 from logger import logger
 
 HEIGHT, WIDTH = 32, 32
-NUM_EPISODES = 1000
-MAX_EP_LEN = 5000
-BUFFER_SIZE = 1000
+MAX_EP_LEN = 10
+BUFFER_SIZE = 100
 
 class CoTrainingAlgorithm():
     def __init__(self):
@@ -57,7 +56,44 @@ class CoTrainingAlgorithm():
             print(stats)
         else:
             raise Exception("Discriminator dataset not configured yet")
+    
+    def train_rl_ppo_rollout(self):
+        batch_size = MAX_EP_LEN
+        length_dataset = 600000
+        total_timesteps = length_dataset*MAX_EP_LEN
+        num_updates = total_timesteps//batch_size
 
+        #Overly done logic; do in place
+
+        cifar_dataset = ImageDataset(buffer_size=60000, height=HEIGHT, width=WIDTH)
+        agent = Agent(action_dim=4, device=self.device)
+        pbar = tqdm.tqdm(total=cifar_dataset.buffer_size)
+
+        train_cifar_iterator = iter(self.dataloader.return_trainloader())
+
+        for update in range(1, num_updates+1):
+            
+            self.train_discriminator()
+
+            cifar_dataset = ImageDataset(buffer_size=60000, height=HEIGHT, width=WIDTH)
+            agent = Agent(action_dim=4, device=self.device)
+            pbar = tqdm.tqdm(total=cifar_dataset.buffer_size)
+
+            train_cifar_iterator = iter(self.dataloader.return_trainloader())
+
+            original_image, label = next(train_cifar_iterator)
+            grid_world_env = GridWorldEnv(max_ep_len=MAX_EP_LEN,
+                                    label=label[0],
+                                    image=original_image[0])
+            
+
+            obs = torch.zeros((MAX_EP_LEN,1)+(32,32))
+            dones = torch.zeros((MAX_EP_LEN,1))
+
+            next_obs = grid_world_env.reset()
+            for step in range(0, MAX_EP_LEN):
+                obs[step] = next_obs
+                dones[step]
 
 
 if __name__ == "__main__":

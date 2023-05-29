@@ -73,9 +73,6 @@ class ImageDataset(Dataset):
         assert new_nums.dtype == np.int64
 
         n = new_imgs.shape[0]
-        print("n=")
-        print(new_imgs.shape)
-        print(new_nums.shape)
         if self.pointer + n < self.buffer_size:
             self.imgs[self.pointer:self.pointer+n, ...] = new_imgs
             self.nums[self.pointer:self.pointer+n, ...] = new_nums
