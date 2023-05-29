@@ -55,9 +55,12 @@ class ImageDataset(Dataset):
 
     def add_data(self, new_imgs, new_nums):
         """
-
         :param new_imgs: (n, 1, height, width) or list of (1, height, width)
         :param new_nums: (n, 1) or list of int
+
+        :param new_imgs: (n, 3, height, width) or list of (3, height, width)
+        :param new_nums: (n, 1) or list of int
+
         :return:
         """
         new_imgs = np.array(new_imgs.cpu())
@@ -70,9 +73,10 @@ class ImageDataset(Dataset):
         assert new_nums.dtype == np.int64
 
         n = new_imgs.shape[0]
-
+        print("n=")
+        print(new_imgs.shape)
+        print(new_nums.shape)
         if self.pointer + n < self.buffer_size:
-            print(new_imgs.shape)
             self.imgs[self.pointer:self.pointer+n, ...] = new_imgs
             self.nums[self.pointer:self.pointer+n, ...] = new_nums
             self.pointer = self.pointer + n
