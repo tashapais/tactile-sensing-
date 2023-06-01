@@ -77,7 +77,7 @@ class CoTrainingAlgorithm():
 
             cifar_dataset = ImageDataset(buffer_size=60000, height=HEIGHT, width=WIDTH)
             agent = Agent(action_dim=4, device=self.device)
-            pbar = tqdm.tqdm(total=cifar_dataset.buffer_size)
+            pbar =  tqdm.tqdm(total=cifar_dataset.buffer_size)
 
             train_cifar_iterator = iter(self.dataloader.return_trainloader())
 
@@ -89,11 +89,22 @@ class CoTrainingAlgorithm():
 
             obs = torch.zeros((MAX_EP_LEN,1)+(32,32))
             dones = torch.zeros((MAX_EP_LEN,1))
-
+            moves = torch.zeros(())
             next_obs = grid_world_env.reset()
+
             for step in range(0, MAX_EP_LEN):
                 obs[step] = next_obs
-                dones[step]
+                dones[step] = ''
+
+                with torch.no_grad():
+                    values[step] = agent.get_value(obs[step]).flatten()
+                    move, logproba, _ = agent.get_move(obs[step])
+                
+                moves[step] = move 
+                logproba[step] = logproba
+
+
+
 
 
 if __name__ == "__main__":
