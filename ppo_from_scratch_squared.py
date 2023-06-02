@@ -134,7 +134,7 @@ class CoTrainingAlgorithm():
                     else:
                         nextnonterminal = 1.0 - dones[t + 1]
                         next_return = returns[t + 1]
-                    returns[t] = rewards[t] + args.gamma * nextnonterminal * next_return
+                    returns[t] = rewards[t] + gamma * nextnonterminal * next_return
                 advantages = returns - values
             
             b_states = states.reshape((-1,) + (32,32))  # [1024, 1, 50, 50]
@@ -143,13 +143,6 @@ class CoTrainingAlgorithm():
             b_advantages = advantages.reshape(-1)
             b_returns = returns.reshape(-1)
             b_values = values.reshape(-1)
-
-
-
-
-
-
-
 
 if __name__ == "__main__":
     algo = CoTrainingAlgorithm()
