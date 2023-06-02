@@ -134,6 +134,7 @@ class CoTrainingAlgorithm():
                     else:
                         nextnonterminal = 1.0 - dones[t + 1]
                         next_return = returns[t + 1]
+                    gamma = 0.1
                     returns[t] = rewards[t] + gamma * nextnonterminal * next_return
                 advantages = returns - values
             
