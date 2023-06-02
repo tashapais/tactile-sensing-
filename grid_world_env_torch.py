@@ -64,7 +64,7 @@ class GridWorldEnv(gym.Env):
         self.current_step += 1
         self.current_loc = new_loc
 
-        return self.done(), self.img_visualization
+        return self.img_visualization, self.done()
 
 
 

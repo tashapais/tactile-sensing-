@@ -56,13 +56,16 @@ class CoTrainingAlgorithm():
             print(stats)
         else:
             raise Exception("Discriminator dataset not configured yet")
+        
+
+
+    
     
     def train_rl_ppo_rollout(self):
         batch_size = MAX_EP_LEN
         length_dataset = 600000
         total_timesteps = length_dataset*MAX_EP_LEN
-        num_updates = total_timesteps//batch_size
-
+        #num_updates = total_timesteps//batch_size
         #Overly done logic; do in place
 
         cifar_dataset = ImageDataset(buffer_size=60000, height=HEIGHT, width=WIDTH)
@@ -71,8 +74,7 @@ class CoTrainingAlgorithm():
 
         train_cifar_iterator = iter(self.dataloader.return_trainloader())
 
-        for update in range(1, num_updates+1):
-            
+        for update in range(1, 2):
             self.train_discriminator()
 
             cifar_dataset = ImageDataset(buffer_size=60000, height=HEIGHT, width=WIDTH)
@@ -86,22 +88,64 @@ class CoTrainingAlgorithm():
                                     label=label[0],
                                     image=original_image[0])
             
+            states = torch.zeros((10,32,32))
+            moves = torch.zeros((10))
+            rewards = torch.zeros((10))
+            logprobs = torch.zeros((10))
+            values = torch.zeros((10))
+            dones = torch.zeros((10))
 
-            obs = torch.zeros((MAX_EP_LEN,1)+(32,32))
-            dones = torch.zeros((MAX_EP_LEN,1))
-            moves = torch.zeros(())
             next_obs = grid_world_env.reset()
+            next_done = torch.zeros(1).to(self.device)
+            states.append(next_obs)
 
             for step in range(0, MAX_EP_LEN):
-                obs[step] = next_obs
-                dones[step] = ''
+                states[step] = next_obs
+                dones[step] = next_done
+
 
                 with torch.no_grad():
-                    values[step] = agent.get_value(obs[step]).flatten()
-                    move, logproba, _ = agent.get_move(obs[step])
+                    values[step] = agent.get_value(states[step]).flatten()
+                    move, logproba, _ = agent.get_move(states[step])
                 
                 moves[step] = move 
-                logproba[step] = logproba
+                logprobs[step] = logproba
+
+                prediction, max_prob, probs = self.discriminator.predict(states[step].cpu().numpy())
+
+                action = {'move':move, 
+                          'prediction':prediction, 
+                          'max_prob': max_prob,
+                          'probs': probs,
+                          'done': 1 if max_prob>0.95 else 0
+                          }
+            
+            next_obs, next_done = grid_world_env.step(action)
+            #now computing the advantage estimation 
+            #computing the advantage function for each time step 
+
+            with torch.no_grad():
+                last_value = agent.get_value(next_obs.to(self.device))
+                returns =  torch.zeros_like(rewards).to(self.device)
+                for t in range(MAX_EP_LEN)[::-1]:
+                    if t == MAX_EP_LEN - 1:
+                        nextnonterminal = 1.0 - next_done
+                        next_return = last_value
+                    else:
+                        nextnonterminal = 1.0 - dones[t + 1]
+                        next_return = returns[t + 1]
+                    returns[t] = rewards[t] + args.gamma * nextnonterminal * next_return
+                advantages = returns - values
+            
+            b_states = states.reshape((-1,) + (32,32))  # [1024, 1, 50, 50]
+            b_logprobs = logprobs.reshape(-1)
+            b_moves = moves.reshape((-1,) + (4, 1))
+            b_advantages = advantages.reshape(-1)
+            b_returns = returns.reshape(-1)
+            b_values = values.reshape(-1)
+
+
+
 
 
 

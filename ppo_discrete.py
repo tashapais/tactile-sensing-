@@ -334,7 +334,7 @@ def wrap_pytorch(env):
 
 
 #the explorer agenet
-class Agent(nn.Module):
+class          Agent(nn.Module):
     def __init__(self, action_dim, device, frames=1, img_size=32):
         super(Agent, self).__init__()
         self.device = device
