@@ -64,7 +64,7 @@ class PPO_trainer():
     def rollout_no_parralelization(self):
         pass
 
-    def make_env(seed):
+    def make_env(self, seed):
         def thunk():
             env = GridWorldEnv()
             env = gym.wrappers.RecordEpisodeStatistics(env)
@@ -156,7 +156,7 @@ class PPO_trainer():
             batch_indices = np.arange(self.batch_size)
             clipfracs = []
 
-            for epoch in range(self.epochs):
+            for _ in range(self.epochs):
                 batch_order = np.random.permutation(batch_indices)
 
                 for start in range(0, self.batch_size, self.minibatch_size):
@@ -172,8 +172,6 @@ class PPO_trainer():
 
                     with torch.no_grad():
                         # calculate approx_kl http://joschu.net/blog/kl-approx.html
-                        old_approx_kl = (-logratio).mean()
-                        approx_kl = ((ratio - 1) - logratio).mean()
                         clipfracs += [((ratio - 1.0).abs() > self.clip_coef).float().mean().item()]
 
                     # Policy loss
