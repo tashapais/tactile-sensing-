@@ -57,14 +57,27 @@ class GridWorldEnv(gym.Env):
         return self.current_step>=self.max_ep_len
 
     def step(self, move):
+        move = action['move']
+        prediction = action['prediction']
+        max_prob = action['max_prob']
+        probs = action['probs']
+        done = action['done']
+
         new_loc = self.compute_next_loc(move)
-        pixel_value = self.img_gt[:,new_loc[0],new_loc[1]]
-        ob = (pixel_value, (new_loc[0].item(), new_loc[1].item()))
+        pixel_value = self.img_gt[tuple(new_loc)]
         self.img_visualization[:,new_loc[0],new_loc[1]] = torch.tensor([0, 0, 0]) if torch.equal(pixel_value, torch.tensor([0, 0, 0])) else pixel_value
+        ob = self.img_visualization
         self.current_step += 1
         self.current_loc = new_loc
-
-        return self.img_visualization, self.done()
+        reward = 1
+        
+        info = {'discover': self.discover,
+                'img': deepcopy(self.img_visualization),
+                'label': self.label,
+                'prediction':prediction}
+        
+        done = self.current_step == self.max_ep_len
+        return ob, reward, done, info
 
 
 

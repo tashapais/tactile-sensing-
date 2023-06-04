@@ -362,11 +362,13 @@ class          Agent(nn.Module):
         x = F.relu(x)
         return x
 
-    def get_move(self, x, action=None):
+    def get_action_and_move(self, x, discriminator, action=None):
         logits = self.actor(self.forward(x))
         probs = Categorical(logits=logits)
         if action is None:
             action = probs.sample()
+
+            
         return action, probs.log_prob(action), probs.entropy()
 
     def get_value(self, x):
@@ -380,6 +382,7 @@ class          Agent(nn.Module):
             probs = F.softmax(logits, dim=-1).cpu().numpy()
             action = np.argmax(probs)
         return action
+
 
     def get_move_stochastic(self, x):
         self.eval()

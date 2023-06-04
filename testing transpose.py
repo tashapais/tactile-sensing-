@@ -1,8 +1,5 @@
-import torch
+import numpy as np
 
-states = torch.zeros(10,32,32)
-moves = torch.zeros((10))
-t = torch.zeros((1,)+(32,32))
-print(t)
-# print(states)
-# print(moves)
+x = np.arange(5)
+y = np.random.shuffle(x)
+print(y, x)

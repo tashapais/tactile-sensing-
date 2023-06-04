@@ -4,13 +4,15 @@ import misc_utils as mu
 from collections import deque
 import cv2
 import numpy as np
+
+cv2.ocl.setUseOpenCL(False)
 import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 from torch.distributions.categorical import Categorical
 from torch.utils.tensorboard import SummaryWriter
-import torchvision.transforms as transforms
+
 import argparse
 from distutils.util import strtobool
 import numpy as np
@@ -23,6 +25,7 @@ import os
 from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecEnvWrapper
 from ppo_discrete import Agent, VecPyTorch, linear_schedule
 from discriminator import LearnedDiscriminator, GroundTruthDiscriminator
+from discriminator_dataset import VariedMNISTDataset
 import tqdm
 import pprint
 import dowel
@@ -30,10 +33,7 @@ from dowel import logger, tabular
 import socket
 import torchvision.transforms as T
 from floating_finger_env import FloatingFingerEnv
-from grid_world_env import GridWorldEnv
-import torchvision
 
-cv2.ocl.setUseOpenCL(False)
 
 def get_args():
     parser = argparse.ArgumentParser(description='PPO agent')
@@ -153,114 +153,43 @@ def get_args():
     args.save_dir = os.path.join(args.save_dir, args.exp_name)
     args.log_dir = os.path.join(args.log_dir, args.exp_name)
 
-    args.batch_size = int(args.num_envs * args.num_steps) #num envs, and the num_steps specified by the user
+    args.batch_size = int(args.num_envs * args.num_steps)
     args.minibatch_size = int(args.batch_size // args.n_minibatch)
 
     return args
 
-#we have to replace this with the environment for our dummy experiment 
-def make_env(seed):
+
+def make_env(env_name, env_id, seed, max_x, max_y, step_size, scale, finger_height, use_correctness):
     def thunk():
-        env = GridWorldEnv()
+        env = FloatingFingerEnv(
+            env_id=env_id,
+            render_pybullet=args.render_pybullet,
+            render_ob=args.render_ob,
+            debug=args.debug,
+            reward_type=args.reward_type,
+            reward_scale=args.reward_scale,
+            exp_knob=args.exp_knob,
+            threshold=args.terminal_confidence,
+            start_on_border=args.start_on_border,
+            num_orientations=args.num_orientations,
+            translate=args.translate,
+            translate_range=args.translate_range,
+            max_x=max_x,
+            max_y=max_y,
+            step_size=step_size,
+            object_scale=scale,
+            finger_height=finger_height,
+            dataset=args.dataset,
+            use_correctness=use_correctness,
+            sensor_noise=args.sensor_noise
+        )
         env = gym.wrappers.RecordEpisodeStatistics(env)
         env.seed(seed)
         env.action_space.seed(seed)
         env.observation_space.seed(seed)
         return env
+
     return thunk
-
-def train_discdriminator_f_dash():
-    global next_obs
-    global discriminator_data_batch
-    global discriminator_path
-    global discriminator_train_loss
-    global discriminator_train_acc
-    global discriminator_test_loss
-    global discriminator_test_acc
-    if args.train_discriminator:
-        if args.collect_initial_batch and discriminator_data_batch == 0:
-            # collect and train on first batch of data
-            pbar = tqdm.tqdm(total=varied_dataset.buffer_size)
-            while len(varied_dataset) < varied_dataset.buffer_size:
-                # TODO further verify list of dict or dict of list: look at source code, infos is a tuple of dicts
-                # using the initialized policy instead of the random policy to collect data
-                if args.initial_batch_policy == 'random':
-                    move = [random.choice([0, 1, 2, 3]) for i in range(args.num_envs)]
-                    current_steps = envs.get_attr('current_step')
-                    done = [1 if current_steps[i] == args.initial_batch_ep_len else 0 for i in range(args.num_envs)]
-                elif args.initial_batch_policy == 'agent':
-                    move = agent.get_move(next_obs)[0]
-                    move = [i.item() for i in move]
-                    current_steps = envs.get_attr('current_step')
-                    done = [1 if current_steps[i] == args.initial_batch_ep_len else 0 for i in range(args.num_envs)]
-                else:
-                    raise TypeError('unrecognized initial batch policy')
-                action = [{'move': move[i],
-                           'prediction': 0,
-                           'done': done[i],
-                           'max_prob': 0.1,
-                           'probs': [0.1] * 10}
-                          for i in range(args.num_envs)]
-                next_obs, rs, ds, infos = envs.step(action)
-                for (i, info, done) in zip(range(len(infos)), infos, ds):
-                    if info['discover']:
-                        # only next_obs is from the reset of the next episode and reset only returns obs
-                        # without info
-                        imgs = mu.generate_rotated_imgs(mu.get_discriminator_input(info['ob']),
-                                                        num_rotations=args.num_rotations)
-                        # imgs = mu.rotate_imgs(imgs, [-info['angle']])
-                        varied_dataset.add_data(imgs,
-                                                [info['num_gt']] * args.num_rotations)
-                        pbar.update(args.num_rotations)
-                    if len(varied_dataset) == varied_dataset.buffer_size:
-                        break
-            pbar.close()
-            # reset the next_obs so that the RL training does not start with highly revealed observations from the random policy
-            next_obs = envs.reset()
-        if len(varied_dataset) >= varied_dataset.buffer_size and (update - 1) % explore_updates == 0:
-            # train discriminator
-            logger.log(str(len(varied_dataset)))
-            logger.log(f'discriminator data batch: {discriminator_data_batch}')
-            folder_name = f'discriminator_batch_{discriminator_data_batch:04d}'
-            pixel_freq = mu.compute_pixel_freq(varied_dataset.imgs, visualize=False, save=True,
-                                               save_path=os.path.join(args.save_dir, folder_name, 'data',
-                                                                      'pixel_freq.png'))
-            # set path for learning to save checkpoint
-            discriminator.save_dir = os.path.join(args.save_dir, folder_name)
-            if args.save_discriminator_data:
-                varied_dataset.export_data(os.path.join(args.save_dir, folder_name, 'data'))
-            train_loader, test_loader = mu.construct_loaders(dataset=varied_dataset, split=0.2)
-            # always train 15 epochs for the first discriminator
-            discriminator_path, discriminator_train_loss, discriminator_train_acc, discriminator_test_loss, discriminator_test_acc, stats = discriminator.learn(
-                epochs=15 if discriminator_data_batch == 0 else args.discriminator_epochs,
-                train_loader=train_loader,
-                test_loader=test_loader,
-                logger=logger)
-
-            # write discriminator stats
-            for i, stat in enumerate(stats):
-                writer.add_scalar('discriminator/train_loss', stat['train_loss'],
-                                  discriminator_data_batch * args.discriminator_epochs + i)
-                writer.add_scalar('discriminator/train_acc', stat['train_acc'],
-                                  discriminator_data_batch * args.discriminator_epochs + i)
-                writer.add_scalar('discriminator/test_loss', stat['test_loss'],
-                                  discriminator_data_batch * args.discriminator_epochs + i)
-                writer.add_scalar('discriminator/test_acc', stat['test_acc'],
-                                  discriminator_data_batch * args.discriminator_epochs + i)
-
-                if args.prod_mode:
-                    data_to_log = {
-                        'discriminator/train_loss': stat['train_loss'],
-                        'discriminator/train_acc': stat['train_acc'],
-                        'discriminator/test_loss': stat['test_loss'],
-                        'discriminator/test_acc': stat['test_acc'],
-                        'discriminator_batch': discriminator_data_batch * args.discriminator_epochs + i,
-                    }
-                    wandb.log(data_to_log)
-            discriminator_data_batch += 1
-
-
-     
 
 
 def train_discdriminator_f():
@@ -450,9 +379,6 @@ def write_explorer_log():
                            f"length={episode_length}, success={episode_success}")
 
 
-HEIGHT = 32
-WIDTH = 32
-
 if __name__ == "__main__":
     args = get_args()
     mu.save_command(os.path.join(args.save_dir, 'command.txt'))
@@ -464,27 +390,22 @@ if __name__ == "__main__":
     logger.log(pprint.pformat(vars(args), indent=4))
     logger.log('\n')
 
-    # # environment scale
-    # if args.dataset == "extruded_polygons":
-    #     # the height of the polygon is 0.5 * 0.4 = 0.2
-    #     max_x = 1.0
-    #     max_y = 1.0
-    #     step_size = 0.02
-    #     scale = 0.4
-    #     finger_height = 0.5 * 0.4 + 0.085
-    # else:
-    #     max_x = 0.3
-    #     max_y = 0.3
-    #     step_size = 0.005
-    #     scale = 1.0
-    #     finger_height = 0.05 + 0.05 + 0.0185 * 0.25
-    # height = round(max_x / step_size)
-    # width = round(max_y / step_size)
-
-    #these height width values can be set directly to the values of CIFAR 100 pictures 
-
-    height = HEIGHT
-    width = WIDTH
+    # environment scale
+    if args.dataset == "extruded_polygons":
+        # the height of the polygon is 0.5 * 0.4 = 0.2
+        max_x = 1.0
+        max_y = 1.0
+        step_size = 0.02
+        scale = 0.4
+        finger_height = 0.5 * 0.4 + 0.085
+    else:
+        max_x = 0.3
+        max_y = 0.3
+        step_size = 0.005
+        scale = 1.0
+        finger_height = 0.05 + 0.05 + 0.0185 * 0.25
+    height = round(max_x / step_size)
+    width = round(max_y / step_size)
 
     # TRY NOT TO MODIFY: setup the environment
     if args.prod_mode:
@@ -497,16 +418,11 @@ if __name__ == "__main__":
         '\n'.join([f"|{key}|{value}|" for key, value in vars(args).items()])))
 
     # TRY NOT TO MODIFY: seeding
-    if torch.backends.mps.is_available():
-        device = torch.device("mps")
-
-    #device = torch.device('cuda' if torch.cuda.is_available() and args.cuda else 'cpu')
+    device = torch.device('cuda' if torch.cuda.is_available() and args.cuda else 'cpu')
     random.seed(args.seed)
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
     torch.backends.cudnn.deterministic = args.torch_deterministic
-
-
 
     if not args.all_in_one:
         # construct discriminator and the dataset
@@ -516,20 +432,17 @@ if __name__ == "__main__":
                                                    discriminator_path=args.discriminator_path,
                                                    lr=args.discriminator_lr)
         transform = T.RandomRotation((0, 360)) if args.rotate else None
-        varied_dataset = torchvision.datasets.CIFAR10(root='../data', train=True,
-                                                download=True, transform= transforms.Compose(
-    [transforms.ToTensor(),
-     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]))
+        varied_dataset = VariedMNISTDataset(buffer_size=args.buffer_size, height=height, width=width, transform=transform)
         varied_dataset.clean_data()
 
     # we need the true multiprocessing for pybullet environments. Otherwise, you need to set the physics id correctly for each pybullet command
     if args.multiprocess:
         envs = VecPyTorch(
-            SubprocVecEnv([make_env(args.seed + i)
+            SubprocVecEnv([make_env(args.env_name, i, args.seed + i, max_x, max_y, step_size, scale, finger_height, args.use_correctness)
                            for i in range(args.num_envs)], "fork"), device)
     else:
         envs = VecPyTorch(
-            DummyVecEnv([make_env(args.seed + i)
+            DummyVecEnv([make_env(args.env_name, i, args.seed + i, max_x, max_y, step_size, scale, finger_height, args.use_correctness)
                          for i in range(args.num_envs)]), device)
     assert isinstance(envs.action_space['move'], Discrete), "only discrete action space is supported"
 
@@ -553,7 +466,7 @@ if __name__ == "__main__":
     next_obs = envs.reset()
     next_done = torch.zeros(args.num_envs).to(device)
 
-    num_updates = args.total_timesteps // args.batch_size   # total number of updates, batch_size is number of 
+    num_updates = args.total_timesteps // args.batch_size   # total number of updates
     explore_updates = args.explorer_steps // args.batch_size    # how many updates before we train the discriminator
     episode = 0
     episode_reward_queue = deque(maxlen=args.running_stat_len)
@@ -568,11 +481,83 @@ if __name__ == "__main__":
     discriminator_train_acc = None
     discriminator_test_loss = None
     discriminator_test_acc = None
-
-    #loop is for explorer
     for update in range(1, num_updates + 1):
-        
-        
+        train_discdriminator_f()
+        # Annealing the rate if instructed to do so.
+        if args.anneal_lr:
+            if args.train_discriminator:
+                # Each time we train the explorer, we strat from the original learning rate and then anneal
+                lrnow = linear_schedule(args.explorer_lr, args.explorer_lr / 10, explore_updates,
+                                        update % explore_updates)
+            else:
+                lrnow = linear_schedule(args.explorer_lr, args.explorer_lr / 10, num_updates, update)
+            optimizer.param_groups[0]['lr'] = lrnow
+
+        # TRY NOT TO MODIFY: prepare the execution of the game.
+        for step in range(0, args.num_steps):
+            global_step += 1 * args.num_envs
+            obs[step] = next_obs
+            dones[step] = next_done
+
+            # ALGO LOGIC: put action logic here
+            with torch.no_grad():
+                values[step] = agent.get_value(obs[step]).flatten()
+                move, logproba, _ = agent.get_move(obs[step])
+
+            moves[step] = move
+            logprobs[step] = logproba
+
+            # STEP!
+            # all in one policy
+            if args.all_in_one:
+                action = []
+                for i in range(args.num_envs):
+                    if 0 <= move[i].item() < 4:
+                        action.append({
+                            'move': move[i].item(),
+                            'prediction': 0,
+                            'max_prob': 0.1,
+                            'probs': np.full(10, 0.1),
+                            'done': False
+                        })
+                    else:
+                        prediction = move[i].item() - 4
+                        probs = np.zeros(10)
+                        probs[prediction] = 1
+                        action.append({
+                            'move': 0,
+                            'prediction': prediction,
+                            'max_prob': 1,
+                            'probs': probs,
+                            'done': True
+                        })
+            else:
+                # build the actions to the envs
+                prediction, max_prob, probs = discriminator.predict(obs[step].cpu().numpy())
+
+                # angles = envs.get_attr('angle')
+                # canonicals = mu.rotate_imgs(obs[step].cpu().numpy(), [-a for a in angles])
+                # prediction, max_prob, probs = discriminator.predict(canonicals)
+
+                # action is a list of dictionary
+                action = [{'move': move[i].item(),
+                           'prediction': prediction[i],
+                           'max_prob': max_prob[i],
+                           'probs': probs[i],
+                           'done': 1 if max_prob[i] >= args.terminal_confidence else 0
+                           } for i in range(args.num_envs)]
+
+            next_obs, rs, ds, infos = envs.step(action)
+            add_data_f()
+
+            # making sure rs is flattened -> from (8, 1) to (8, ) and next_done is a tensor
+            rewards[step], next_done = rs.view(-1), torch.Tensor(ds).to(device)
+            # print([(env.prediction, env.num_gt) for env in envs.venv.envs])
+
+            # write log
+            write_explorer_log()
+
+        # ---------------- explorer batch data collection finished --------------- #
         # bootstrap reward if not done. reached the batch limit
         with torch.no_grad():
             last_value = agent.get_value(next_obs.to(device)).reshape(1, -1)
@@ -614,7 +599,6 @@ if __name__ == "__main__":
         inds = np.arange(args.batch_size, )
         for i_epoch_pi in range(args.update_epochs):
             np.random.shuffle(inds)
-    
             target_agent.load_state_dict(agent.state_dict())
             for start in range(0, args.batch_size, args.minibatch_size):
                 end = start + args.minibatch_size
@@ -693,4 +677,4 @@ if __name__ == "__main__":
 
     envs.close()
     writer.close()
-    logger.remove_all
+    logger.remove_all()
