@@ -13,7 +13,6 @@ HEIGHT = WIDTH = 32
 
 class PPO_trainer():
     def __init__(self, num_parralel_envs, num_total_timesteps, num_steps, num_minibatches=4,learning_rate=1e-3,action_dim):
-        
         #training params
         self.device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
         self.action_dim = action_dim
@@ -22,7 +21,8 @@ class PPO_trainer():
         self.num_total_timesteps = num_total_timesteps
         self.num_steps = num_steps
         self.num_minibatches = num_minibatches
-        self.batch_size = num_steps*num_parralel_envs
+        self.batch_size = int(num_steps*num_parralel_envs)
+        self.minibatch_size = int(self.batch_size//self.num_minibatches)
         self.num_updates = num_total_timesteps//self.batch_size
         self.lr = learning_rate
         self.optimizer = optim.Adam(agent.parameters(), lr=self.lr, eps=1e-5) 
@@ -42,10 +42,7 @@ class PPO_trainer():
         self.dones = torch.zeros((self.num_steps, self.num_parralel_envs)).to(self.device)
         self.values = torch.zeros((self.num_steps, self.num_parralel_envs)).to(self.device)
         
-    def rollout_no_parralelization(self, agent):
-        for _ in range(EPISODES):
-            cifar_dataset = ImageDataset(buffer_size=100,height=HEIGHT,width=WIDTH)
-            print(len(cifar_dataset))
+    def rollout_no_parralelization(self):
         pass
 
     def general_advantage_estimator(self):
