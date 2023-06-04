@@ -19,7 +19,7 @@ import numpy as np
 HEIGHT = WIDTH = 32
 
 class PPO_trainer():
-    def __init__(self, num_parralel_envs, num_total_timesteps, num_steps, gae_lambda, num_minibatches=4,learning_rate=1e-3, action_dim=4, anneal_lr=False, multiprocess=False, gamma=0.95, epochs=4, clip_coef=0.1, clip_vloss=True, entropy_coef=0.05, value_coef=0.5, max_grad_norm=0.5):
+    def __init__(self, num_parralel_envs, num_total_timesteps, num_steps, gae_lambda, num_minibatches=4,learning_rate=1e-3, action_dim=4, anneal_lr=False, multiprocess=False, gamma=0.95, epochs=4, clip_coef=0.1, clip_vloss=True, entropy_coef=0.05, value_coef=0.5, max_grad_norm=0.5, terminal_confidence=0.95):
         #training params
         self.device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
         self.action_dim = action_dim
@@ -44,6 +44,7 @@ class PPO_trainer():
         self.entropy_coef = entropy_coef
         self.value_coef = value_coef
         self.max_grad_norm = max_grad_norm
+        self.terminal_confidence = terminal_confidence
 
         #env parameters
         self.height = HEIGHT
@@ -54,7 +55,7 @@ class PPO_trainer():
 
         #storage params
         self.obs = torch.zeros((self.num_steps, self.num_parralel_envs) + self.single_observation_space_shape).to(self.device)
-        self.actions = torch.zeros((self.num_steps, self.num_parralel_envs) + self.single_action_space_shape).to(self.device)
+        self.moves = torch.zeros((self.num_steps, self.num_parralel_envs) + self.single_action_space_shape).to(self.device)
         self.logprobs = torch.zeros((self.num_steps, self.num_parralel_envs)).to(self.device)
         self.rewards = torch.zeros((self.num_steps, self.num_parralel_envs)).to(self.device)
         self.dones = torch.zeros((self.num_steps, self.num_parralel_envs)).to(self.device)
@@ -106,16 +107,26 @@ class PPO_trainer():
                 self.dones[step] = next_done
 
                 with torch.no_grad():
-                    action, logprob, _ = self.agent.get_action_and_move(next_obs, discriminator)
+                    move, logprob, _ = self.agent.get_action_and_move(next_obs, discriminator)
                     value = self.agent.get_value(next_obs)
-                    self.values[step] = value.flatten()
+
+                self.values[step] = value.flatten()
+                self.logprobs[step] = logprob
+                self.moves[step] = move
 
                 prediction, max_prob, probs = discriminator.predict(self.obs[step].cpu().numpy())
 
+                action = [{'move': move[i].item(),
+                           'prediction': prediction[i],
+                           'max_prob': max_prob[i],
+                           'probs': probs[i],
+                           'done': 1 if max_prob[i] >= self.terminal_confidence else 0
+                           } for i in range(self.num_parralel_envs)]
 
-            next_obs, reward, done, info = envs.step(action.cpu().numpy())
-            self.rewards[step] = torch.tensor(reward).to(self.device).view(-1)
-            next_obs, next_done = torch.Tensor(next_obs).to(self.device), torch.Tensor(done).to(self.device)     
+
+                next_obs, reward, done, info = envs.step(action.cpu().numpy())
+                self.rewards[step] = torch.tensor(reward).to(self.device).view(-1)
+                next_obs, next_done = torch.Tensor(next_obs).to(self.device), torch.Tensor(done).to(self.device)     
             
 
             with torch.no_grad():
@@ -134,9 +145,9 @@ class PPO_trainer():
                 returns = advantages + self.values
 
             
-            batch_obs = self.obs.reshape((-1,) + envs.single_observation_space.shape)
+            batch_obs = self.obs.reshape((-1,) + self.single_observation_space_shape)
             batch_logprobs = self.logprobs.reshape(-1)
-            batch_actions = self.actions.reshape((-1,) + envs.single_action_space.shape)
+            batch_moves = self.moves.reshape((-1,) + self.single_action_space_shape)
             batch_advantages = advantages.reshape(-1)
             batch_returns = returns.reshape(-1)
             batch_values = self.values.reshape(-1)
@@ -153,7 +164,7 @@ class PPO_trainer():
                     minibatch_indices = batch_order[start:end]
                     minibatch_advantages = batch_advantages[minibatch_indices]
 
-                    _, newlogprob, entropy = agent.get_move(batch_obs[minibatch_indices], batch_actions.long()[minibatch_indices])
+                    _, newlogprob, entropy = agent.get_move(batch_obs[minibatch_indices], batch_moves.long()[minibatch_indices])
                     entropy_loss = entropy.mean()
 
                     logratio = newlogprob - batch_logprobs[minibatch_indices]
