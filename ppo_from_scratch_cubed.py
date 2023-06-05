@@ -36,6 +36,7 @@ class CoTrainingAlgorithm():
                  value_coef=0.5, 
                  max_grad_norm=0.5, 
                  terminal_confidence=0.95):
+        
         #training params
         self.device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
         self.dataloader = DataLoader(batch_size=1)
@@ -77,7 +78,6 @@ class CoTrainingAlgorithm():
         self.seed = time.time()
         self.envs = VecPyTorch( SubprocVecEnv([self.make_env(self.seed + i)
                            for i in range(self.num_parralel_envs)], "fork"), self.device)
-        
 
         #storage params
         self.obs = torch.zeros((self.num_steps, self.num_parralel_envs) + self.single_observation_space_shape).to(self.device)
