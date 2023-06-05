@@ -248,7 +248,7 @@ class CoTrainingAlgorithm():
         next_done = torch.zeros(self.num_parralel_envs).to(self.device)
 
         for update_num in range(1, self.num_updates+1):
-            self.discriminator.train_discriminator()
+            self.train_discriminator()
 
             if self.anneal_lr:
                 frac = 1.0 - (update_num - 1.0) / self.num_updates
