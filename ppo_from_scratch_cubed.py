@@ -69,15 +69,14 @@ class CoTrainingAlgorithm():
         self.max_grad_norm = max_grad_norm
         self.terminal_confidence = terminal_confidence
        
-        
         #env parameters
         self.height = HEIGHT
         self.width = WIDTH
         self.single_observation_space_shape = (HEIGHT, WIDTH)
         self.single_action_space_shape = (self.action_dim,)
         self.seed = time.time()
-        self.envs = VecPyTorch( SubprocVecEnv([self.make_env(self.seed + i)
-                           for i in range(self.num_parralel_envs)], "fork"), self.device)
+        self.env_images = iter(self.dataloader.return_trainloader())
+        self.envs = VecPyTorch(SubprocVecEnv([self.make_env(self.seed + i) for i in range(self.num_parralel_envs)], "fork"), self.device)
 
         #storage params
         self.obs = torch.zeros((self.num_steps, self.num_parralel_envs) + self.single_observation_space_shape).to(self.device)
@@ -86,9 +85,6 @@ class CoTrainingAlgorithm():
         self.rewards = torch.zeros((self.num_steps, self.num_parralel_envs)).to(self.device)
         self.dones = torch.zeros((self.num_steps, self.num_parralel_envs)).to(self.device)
         self.values = torch.zeros((self.num_steps, self.num_parralel_envs)).to(self.device)
-
-        #environment images
-        self.env_images = iter(self.dataloader.return_trainloader())
         
     def generate_training_data(self):
         cifar_dataset = ImageDataset(buffer_size=BUFFER_SIZE, height=HEIGHT, width=WIDTH)
@@ -126,8 +122,8 @@ class CoTrainingAlgorithm():
         
 
     def make_env(self, seed):
-        img, label = next(self.env_images)
         def thunk():
+            img, label = next(self.env_images)
             env = GridWorldEnv(image=img[0], label=label[0], max_ep_len=self.num_steps)
             env = gym.wrappers.RecordEpisodeStatistics(env)
             env.seed(seed)
