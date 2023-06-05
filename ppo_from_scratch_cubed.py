@@ -4,18 +4,14 @@ from ppo_discrete import Agent
 import tqdm
 from grid_world_env_torch import GridWorldEnv
 from data import DataLoader
-import matplotlib.pyplot as plt
 import misc_utils as mu 
-from logger import logger
 import torch.optim as optim
 import time as time 
-from ppo_discrete import Agent, VecPyTorch, linear_schedule
-from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecEnvWrapper
+from ppo_discrete import Agent, VecPyTorch
+from stable_baselines3.common.vec_env import  SubprocVecEnv 
 import numpy as np
 import torch.nn as nn  
 import gym
-import random 
-
 
 HEIGHT, WIDTH = 32, 32
 MAX_EP_LEN = 10
