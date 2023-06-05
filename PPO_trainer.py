@@ -67,7 +67,7 @@ class PPO_trainer(CoTrainingAlgorithm):
 
     def make_env(self, seed):
         def thunk():
-            env = GridWorldEnv()
+            env = GridWorldEnv(max_ep_len=, image=, label=)
             env = gym.wrappers.RecordEpisodeStatistics(env)
             env.seed(seed)
             env.action_space.seed(seed)
@@ -175,7 +175,16 @@ class PPO_trainer(CoTrainingAlgorithm):
                 self.optimizer.step()
     
 
+    def make_envs(self):
+
+        pass
+
+
+
+
     def train(self):
+
+
         self.envs = VecPyTorch(
             SubprocVecEnv([self.make_env(self.seed + i)
                            for i in range(self.num_parralel_envs)], "fork"), self.device)

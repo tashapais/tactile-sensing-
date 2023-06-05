@@ -87,6 +87,9 @@ class CoTrainingAlgorithm():
         self.rewards = torch.zeros((self.num_steps, self.num_parralel_envs)).to(self.device)
         self.dones = torch.zeros((self.num_steps, self.num_parralel_envs)).to(self.device)
         self.values = torch.zeros((self.num_steps, self.num_parralel_envs)).to(self.device)
+
+        #environment images
+        self.env_images = iter(self.dataloader.return_trainloader())
         
     def generate_training_data(self):
         cifar_dataset = ImageDataset(buffer_size=BUFFER_SIZE, height=HEIGHT, width=WIDTH)
@@ -124,8 +127,9 @@ class CoTrainingAlgorithm():
         
 
     def make_env(self, seed):
+        img, label = next(self.env_images)
         def thunk():
-            env = GridWorldEnv()
+            env = GridWorldEnv(image=img[0], label=label[0], max_ep_len=self.num_steps)
             env = gym.wrappers.RecordEpisodeStatistics(env)
             env.seed(seed)
             env.action_space.seed(seed)
@@ -157,11 +161,11 @@ class CoTrainingAlgorithm():
                         } for i in range(self.num_parralel_envs)]
 
 
-            next_obs, reward, done, info = self.envs.step(action.cpu().numpy())
+            next_obs, reward, dones, infos = self.envs.step(action.cpu().numpy())
             self.rewards[step] = torch.tensor(reward).to(self.device).view(-1)
             next_obs, next_done = torch.Tensor(next_obs).to(self.device), torch.Tensor(done).to(self.device)
 
-            self.add_new_data(info)
+            self.add_new_data(infos, dones)
             
         return next_obs, next_done
     
@@ -234,17 +238,14 @@ class CoTrainingAlgorithm():
                 nn.utils.clip_grad_norm_(self.agent.parameters(), self.max_grad_norm)
                 self.optimizer.step()
     
-    def add_new_data(self, infos):
-        #how do we do this
-        for (i, info, done) in zip(range(len(infos)), infos, ds):
+    def add_new_data(self, infos, dones):
+        for (i, info, done) in zip(range(len(infos)), infos, dones):
             if info['discover']:
-                imgs = mu.generate_rotated_imgs(mu.get_discriminator_input(info['ob']),
-                                                num_rotations=args.num_rotations)
-                # imgs = mu.rotate_imgs(imgs, [-info['angle']])
-                self.discriminator_dataset.add_data(imgs, [info['num_gt']] * args.num_rotations)
+                img = info['img']
+                self.discriminator_dataset.add_data(img, info['label'])
             
     def co_training_loop(self):    
-        next_obs = torch.Tensor(envs.reset()).to(self.device)
+        next_obs = torch.Tensor(self.envs.reset()).to(self.device)
         next_done = torch.zeros(self.num_parralel_envs).to(self.device)
 
         for update_num in range(1, self.num_updates+1):
@@ -275,9 +276,6 @@ class CoTrainingAlgorithm():
                                     batch_returns=batch_returns, 
                                     batch_values=batch_values)
             
-            
-            add_data()
-
 if __name__ == "__main__":
     co_trainer = CoTrainingAlgorithm(num_parralel_envs=4,num_total_timesteps=1e5, num_steps=MAX_EP_LEN)
     co_trainer.generate_training_data()

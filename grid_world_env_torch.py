@@ -68,12 +68,10 @@ class GridWorldEnv(gym.Env):
         ob = self.img_visualization
         self.current_step += 1
         self.current_loc = new_loc
-        reward = 1
+        reward = 1 if prediction == self.label else 0
 
-        done = 
+        done = self.current_step == self.max_ep_len
 
-        #reward is completely inocrrectly calculated right now, cmompletely wrong, completely wrong all wrong 
-        
         info = {'discover': discover,
                 'img': deepcopy(ob),
                 'label': self.label,
