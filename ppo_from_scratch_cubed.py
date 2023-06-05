@@ -79,6 +79,9 @@ class CoTrainingAlgorithm():
         self.single_observation_space_shape = (HEIGHT, WIDTH)
         self.single_action_space_shape = (self.action_dim,)
         self.seed = time.time()
+        self.envs = VecPyTorch( SubprocVecEnv([self.make_env(self.seed + i)
+                           for i in range(self.num_parralel_envs)], "fork"), self.device)
+        
 
         #storage params
         self.obs = torch.zeros((self.num_steps, self.num_parralel_envs) + self.single_observation_space_shape).to(self.device)
@@ -280,3 +283,4 @@ if __name__ == "__main__":
     co_trainer = CoTrainingAlgorithm(num_parralel_envs=4,num_total_timesteps=1e5, num_steps=MAX_EP_LEN)
     co_trainer.generate_training_data()
     co_trainer.train_discriminator()
+    co_trainer.co_training_loop()
