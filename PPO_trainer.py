@@ -62,8 +62,6 @@ class PPO_trainer():
         self.dones = torch.zeros((self.num_steps, self.num_parralel_envs)).to(self.device)
         self.values = torch.zeros((self.num_steps, self.num_parralel_envs)).to(self.device)
         
-    def rollout_no_parralelization(self):
-        pass
 
     def make_env(self, seed):
         def thunk():
@@ -74,19 +72,6 @@ class PPO_trainer():
             env.observation_space.seed(seed)
             return env
         return thunk
-
-    def general_advantage_estimator(self):
-        pass
-
-    def training_actor(self):
-        pass
-
-    def training_critic(self):
-        pass
-
-    def optimize_policy_value(self):
-        pass
-
 
     def rollout(self):
         for step in range(self.num_steps):
@@ -135,7 +120,7 @@ class PPO_trainer():
                 advantages[t] = lastgaelam = delta + self.gamma * self.gae_lambda * nextnonterminal * lastgaelam
             returns = advantages + self.values
 
-        return returns
+        return advantages, returns
 
 
 
@@ -188,7 +173,7 @@ class PPO_trainer():
                 self.optimizer.step()
     
 
-    def train(self, discriminator):
+    def train(self):
         self.envs = VecPyTorch(
             SubprocVecEnv([self.make_env(self.seed + i)
                            for i in range(self.num_parralel_envs)], "fork"), self.device)
@@ -202,48 +187,9 @@ class PPO_trainer():
                 self.lr = self.lr*frac
                 self.optimizer.param_groups[0]["lr"] = self.lr
 
-            for step in range(self.num_steps):
-                self.global_step += self.num_parralel_envs
-                self.obs[step] = next_obs   
-                self.dones[step] = next_done
-
-                with torch.no_grad():
-                    move, logprob, _ = self.agent.get_action_and_move(next_obs)
-                    value = self.agent.get_value(next_obs)
-
-                self.values[step] = value.flatten()
-                self.logprobs[step] = logprob
-                self.moves[step] = move
-
-                prediction, max_prob, probs = discriminator.predict(self.obs[step].cpu().numpy())
-
-                action = [{'move': move[i].item(),
-                           'prediction': prediction[i],
-                           'max_prob': max_prob[i],
-                           'probs': probs[i],
-                           'done': 1 if max_prob[i] >= self.terminal_confidence else 0
-                           } for i in range(self.num_parralel_envs)]
-
-
-                next_obs, reward, done, _ = self.envs.step(action.cpu().numpy())
-                self.rewards[step] = torch.tensor(reward).to(self.device).view(-1)
-                next_obs, next_done = torch.Tensor(next_obs).to(self.device), torch.Tensor(done).to(self.device)     
+            next_obs, next_done = self.rollout()
+            advantages, returns = self.advantage_return_computation(next_obs=next_obs, next_done=next_done)
             
-
-            with torch.no_grad():
-                next_value = self.agent.get_value(next_obs).reshape(1, -1)
-                advantages = torch.zeros_like(self.rewards).to(self.device)
-                lastgaelam = 0
-                for t in reversed(range(self.num_steps)):
-                    if t == self.num_steps - 1:
-                        nextnonterminal = 1.0 - next_done
-                        nextvalues = next_value
-                    else:
-                        nextnonterminal = 1.0 - self.dones[t + 1]
-                        nextvalues = self.values[t + 1]
-                    delta = self.rewards[t] + self.gamma * nextvalues * nextnonterminal - self.values[t]
-                    advantages[t] = lastgaelam = delta + self.gamma * self.gae_lambda * nextnonterminal * lastgaelam
-                returns = advantages + self.values
 
             
             batch_obs = self.obs.reshape((-1,) + self.single_observation_space_shape)
@@ -254,53 +200,12 @@ class PPO_trainer():
             batch_values = self.values.reshape(-1)
 
 
-            batch_indices = np.arange(self.batch_size)
-            clipfracs = []
-
-            for _ in range(self.epochs):
-                batch_order = np.random.permutation(batch_indices)
-
-                for start in range(0, self.batch_size, self.minibatch_size):
-                    end = start + self.minibatch_size
-                    minibatch_indices = batch_order[start:end]
-                    minibatch_advantages = batch_advantages[minibatch_indices]
-
-                    _, newlogprob, entropy = self.agent.get_move(batch_obs[minibatch_indices], batch_moves.long()[minibatch_indices])
-                    entropy_loss = entropy.mean()
-
-                    logratio = newlogprob - batch_logprobs[minibatch_indices]
-                    ratio = logratio.exp()
-
-                    with torch.no_grad():
-                        # calculate approx_kl http://joschu.net/blog/kl-approx.html
-                        clipfracs += [((ratio - 1.0).abs() > self.clip_coef).float().mean().item()]
-
-                    # Policy loss
-                    pg_loss1 = -minibatch_advantages * ratio
-                    pg_loss2 = -minibatch_advantages * torch.clamp(ratio, 1 - self.clip_coef, 1 + self.clip_coef)
-                    pg_loss = torch.max(pg_loss1, pg_loss2).mean()
-
-
-                    # Value loss
-                    new_values = self.agent.get_value(batch_obs[minibatch_indices]).view(-1)
-                    if self.clip_vloss:
-                        v_loss_unclipped = ((new_values - batch_returns[minibatch_indices]) ** 2)
-                        v_clipped = batch_values[minibatch_indices] + torch.clamp(new_values - batch_values[minibatch_indices],
-                                                                        -self.clip_coef, self.clip_coef)
-                        v_loss_clipped = (v_clipped - batch_returns[minibatch_indices]) ** 2
-                        v_loss_max = torch.max(v_loss_unclipped, v_loss_clipped)
-                        v_loss = 0.5 * v_loss_max.mean()
-                    else:
-                        v_loss = 0.5 * ((new_values - batch_returns[minibatch_indices]) ** 2).mean()
-
-
-                    loss = pg_loss - self.entropy_coef * entropy_loss + v_loss * self.value_coef
-
-                    self.optimizer.zero_grad()
-                    loss.backward()
-                    nn.utils.clip_grad_norm_(self.agent.parameters(), self.max_grad_norm)
-                    self.optimizer.step()
-
+            self.optimization(batch_obs=batch_obs, 
+                              batch_logprobs=batch_logprobs,
+                              batch_moves=batch_moves, 
+                              batch_advantages=batch_advantages, 
+                              batch_returns=batch_returns, 
+                              batch_values=batch_values)
                     
 if __name__ == "__main__":
     p = PPO_trainer()
