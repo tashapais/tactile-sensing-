@@ -269,11 +269,11 @@ class CoTrainingAlgorithm():
 
 
             self.optimization(batch_obs=batch_obs, 
-                                    batch_logprobs=batch_logprobs,
-                                    batch_moves=batch_moves, 
-                                    batch_advantages=batch_advantages, 
-                                    batch_returns=batch_returns, 
-                                    batch_values=batch_values)
+                              batch_logprobs=batch_logprobs,
+                              batch_moves=batch_moves, 
+                              batch_advantages=batch_advantages, 
+                              batch_returns=batch_returns, 
+                              batch_values=batch_values)
             
 if __name__ == "__main__":
     co_trainer = CoTrainingAlgorithm(num_parralel_envs=4,num_total_timesteps=1e5, num_steps=MAX_EP_LEN)
