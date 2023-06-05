@@ -7,20 +7,16 @@ from data import DataLoader
 import matplotlib.pyplot as plt
 import misc_utils as mu 
 from logger import logger
-from torch import optim
-import torch.nn as nn
-import gym
+import torch.optim as optim
+import time as time 
 from ppo_discrete import Agent, VecPyTorch, linear_schedule
 from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecEnvWrapper
-import time 
 import numpy as np
-from ppo_from_scratch_squared import CoTrainingAlgorithm
+import torch.nn as nn  
+import gym
 
-
-HEIGHT = WIDTH = 32
-
-class PPO_trainer(CoTrainingAlgorithm):
-    def __init__(self):        
+class PPO_trainer():
+    def __init__(self, CoTrainingAlgorithm):        
         #training params
         self.device = CoTrainingAlgorithm.device
         self.action_dim = CoTrainingAlgorithm.action_dim
@@ -54,7 +50,8 @@ class PPO_trainer(CoTrainingAlgorithm):
         self.single_observation_space_shape = CoTrainingAlgorithm.single_observation_space_shape
         self.single_action_space_shape = CoTrainingAlgorithm.single_action_space_shape
         self.seed = CoTrainingAlgorithm.seed
-
+        self.envs = VecPyTorch( SubprocVecEnv([self.make_env(self.seed + i)
+                           for i in range(self.num_parralel_envs)], "fork"), self.device)
         
         #storage params
         self.obs = CoTrainingAlgorithm.obs
@@ -173,43 +170,3 @@ class PPO_trainer(CoTrainingAlgorithm):
                 loss.backward()
                 nn.utils.clip_grad_norm_(self.agent.parameters(), self.max_grad_norm)
                 self.optimizer.step()
-    
-
-    def train(self):
-        self.envs = VecPyTorch(
-            SubprocVecEnv([self.make_env(self.seed + i)
-                           for i in range(self.num_parralel_envs)], "fork"), self.device)
-    
-        next_obs = torch.Tensor(self.envs.reset()).to(self.device)
-        next_done = torch.zeros(self.num_parralel_envs).to(self.device)
-
-        for update_num in range(1, self.num_updates+1):
-            self.discriminator.train_discriminator()
-
-            if self.anneal_lr:
-                frac = 1.0 - (update_num - 1.0) / self.num_updates
-                self.lr = self.lr*frac
-                self.optimizer.param_groups[0]["lr"] = self.lr
-
-            next_obs, next_done = self.rollout()
-            advantages, returns = self.advantage_return_computation(next_obs=next_obs, next_done=next_done)
-            
-
-            
-            batch_obs = self.obs.reshape((-1,) + self.single_observation_space_shape)
-            batch_logprobs = self.logprobs.reshape(-1)
-            batch_moves = self.moves.reshape((-1,) + self.single_action_space_shape)
-            batch_advantages = advantages.reshape(-1)
-            batch_returns = returns.reshape(-1)
-            batch_values = self.values.reshape(-1)
-
-
-            self.optimization(batch_obs=batch_obs, 
-                              batch_logprobs=batch_logprobs,
-                              batch_moves=batch_moves, 
-                              batch_advantages=batch_advantages, 
-                              batch_returns=batch_returns, 
-                              batch_values=batch_values)
-                                
-if __name__ == "__main__":
-    p = PPO_trainer()
