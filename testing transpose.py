@@ -1,5 +1,9 @@
 import numpy as np
+import torch
 
-x = np.arange(5)
-y = np.random.shuffle(x)
-print(y, x)
+for i in range(9):
+    print(i)
+
+with torch.no_grad():
+    print("Hello")
+
