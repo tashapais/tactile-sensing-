@@ -163,7 +163,7 @@ class CoTrainingAlgorithm():
 
             next_obs, reward, dones, infos = self.envs.step(action.cpu().numpy())
             self.rewards[step] = torch.tensor(reward).to(self.device).view(-1)
-            next_obs, next_done = torch.Tensor(next_obs).to(self.device), torch.Tensor(done).to(self.device)
+            next_obs, next_done = torch.Tensor(next_obs).to(self.device), torch.Tensor(dones).to(self.device)
 
             self.add_new_data(infos, dones)
             
