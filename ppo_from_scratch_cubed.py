@@ -239,11 +239,9 @@ class CoTrainingAlgorithm():
                 self.discriminator_dataset.add_data(img, info['label'])
             
     def co_training_loop(self):  
-        print("XXXXXX HERE XXXXXXX")  
         self.envs = VecPyTorch(DummyVecEnv([self.make_env(self.seed+i) for i in range(self.num_parralel_envs)]), self.device)
         next_obs = torch.Tensor(self.envs.reset()).to(self.device)
         next_done = torch.zeros(self.num_parralel_envs).to(self.device)
-        print("XXXXXX HERE XXXXXXX")
 
 
         for update_num in range(1, self.num_updates+1):
@@ -278,5 +276,4 @@ if __name__ == "__main__":
     co_trainer = CoTrainingAlgorithm(num_parralel_envs=4,num_total_timesteps=1e5, num_steps=MAX_EP_LEN)
     co_trainer.generate_training_data()
     co_trainer.train_discriminator()
-    print("XXXXXX HERE XXXXXXX")
     co_trainer.co_training_loop()
