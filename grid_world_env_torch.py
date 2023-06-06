@@ -43,8 +43,8 @@ class GridWorldEnv(gym.Env):
                                              "probs": gym.spaces.Box(low=0, high=1, shape=(self.num_classes,)),
                                              "max_prob": gym.spaces.Box(low=0, high=1, shape=(1,)),
                                              "done": gym.spaces.Discrete(2)})
-        self.observation_space = gym.spaces.Box(low=np.zeros((1, HEIGHT, WIDTH)),
-                                                high=np.full((1, HEIGHT, WIDTH), 255), dtype=np.uint8)
+        self.observation_space = gym.spaces.Box(low=np.zeros((3, HEIGHT, WIDTH)),
+                                                high=np.full((3, HEIGHT, WIDTH), 255), dtype=np.uint8)
         
     def reset(self):
         """ return initial observations"""
@@ -54,24 +54,20 @@ class GridWorldEnv(gym.Env):
         initial_loc = torch.randint(low=0, high=32, size=(2,))
         self.current_step = 0
         self.renderer = plt.imshow (self.img_visualization.permute(1,2,0).numpy())
-        print(type(self.img_gt))
         pixel_value = self.img_gt[:,initial_loc[0],initial_loc[1]]
         self.img_visualization[:,initial_loc[0],initial_loc[1]] = torch.tensor([0, 0, 0]) if torch.equal(pixel_value, torch.tensor([0, 0, 0])) else pixel_value
 
-        ob = (pixel_value, (initial_loc[0].item(), initial_loc[1].item()))
         self.current_loc = initial_loc
         self.current_step += 1
-        return self.img_visualization, ob 
+        return self.img_visualization
     
     def done(self):
         return self.current_step>=self.max_ep_len
 
     def step(self, action):
-        print(action)
         if type(action) == torch.Tensor:
             done = self.current_step ==  self.max_ep_len
             new_loc = self.compute_next_loc(action)
-            print(self.img_gt.shape)
             pixel_value = self.img_gt[:,new_loc[0], new_loc[1]]
             discover = not torch.equal(pixel_value, self.img_visualization[:,new_loc[0],new_loc[1]])
             self.img_visualization[:,new_loc[0], new_loc[1]] =  pixel_value

@@ -41,10 +41,7 @@ class CoTrainingAlgorithm():
         self.device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
         self.dataloader = DataLoader(batch_size=1)
         self.discriminator_dataset = None
-        self.discriminator = mu.construct_discriminator(discriminator_type="learned",
-                                                   height=HEIGHT,
-                                                   width=WIDTH,
-                                                   lr=0.001)
+        self.discriminator = mu.construct_discriminator(discriminator_type="learned", height=HEIGHT,width=WIDTH,lr=0.001)
         self.action_dim = action_dim
         self.agent = Agent(action_dim=self.action_dim, device=self.device)
         self.num_parralel_envs = num_parralel_envs
@@ -53,7 +50,7 @@ class CoTrainingAlgorithm():
         self.num_minibatches = num_minibatches
         self.batch_size = int(num_steps*num_parralel_envs)
         self.minibatch_size = int(self.batch_size//self.num_minibatches)
-        self.num_updates = num_total_timesteps//self.batch_size
+        self.num_updates = int(num_total_timesteps//self.batch_size)
         self.lr = learning_rate
         self.optimizer = optim.Adam(self.agent.parameters(), lr=self.lr, eps=1e-5) 
         self.global_step = 0
@@ -72,7 +69,7 @@ class CoTrainingAlgorithm():
         #env parameters
         self.height = HEIGHT
         self.width = WIDTH
-        self.single_observation_space_shape = (HEIGHT, WIDTH)
+        self.single_observation_space_shape = (3, HEIGHT, WIDTH)
         self.single_action_space_shape = (self.action_dim,)
         self.seed = int(time.time())
         self.env_images = iter(self.dataloader.return_trainloader())
@@ -96,7 +93,7 @@ class CoTrainingAlgorithm():
             grid_world_env = GridWorldEnv(max_ep_len=MAX_EP_LEN,
                                     label=label[0],
                                     image=original_image[0])
-            img, ob = grid_world_env.reset()
+            img = grid_world_env.reset()
             img = img.to(self.device)
             done = False
             while not done and not len(cifar_dataset) == cifar_dataset.buffer_size:
@@ -115,7 +112,7 @@ class CoTrainingAlgorithm():
                 epochs=15,
                 train_loader=train_loader,
                 test_loader=test_loader)
-            print(stats)
+            #print(stats)
         else:
             raise Exception("Discriminator dataset not configured yet")
         
@@ -131,9 +128,10 @@ class CoTrainingAlgorithm():
             return env
         return thunk
 
-    def rollout(self):
+    def rollout(self, next_obs, next_done):
         for step in range(self.num_steps):
             self.global_step += self.num_parralel_envs
+            print(self.obs.shape, next_obs.shape)
             self.obs[step] = next_obs   
             self.dones[step] = next_done
 
@@ -252,7 +250,7 @@ class CoTrainingAlgorithm():
                 self.lr = self.lr*frac
                 self.optimizer.param_groups[0]["lr"] = self.lr
 
-            next_obs, next_done = self.rollout()
+            next_obs, next_done = self.rollout(next_obs, next_done)
             advantages, returns = self.advantage_return_computation(next_obs=next_obs, next_done=next_done)
             
 
