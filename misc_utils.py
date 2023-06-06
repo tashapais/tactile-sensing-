@@ -512,6 +512,7 @@ def check_class(partial_grid, gt_grids):
 def get_current_loc(ob):
     """ ob is (1, height, width). (height, width) will not work """
     x_idx, y_idx = np.where(np.logical_or(ob[0] == current_black, ob[0] == current_white))
+    print(x_idx, y_idx)
     assert len(x_idx) == 1 and len(y_idx) == 1
     x_idx, y_idx = x_idx[0], y_idx[0]
     return x_idx, y_idx

@@ -196,7 +196,7 @@ class LearnedDiscriminator:
         return epoch_loss, acc
 
     def predict(self, obs):
-        obs = mu.get_discriminator_input(obs)
+        #obs = mu.get_discriminator_input(obs) i don't thik we need to do this
         # this ob comes from the env.step and it needs to be normalized
         obs = (obs / 255.0 - 0.5) / 0.5
         return self.model.predict(obs)
