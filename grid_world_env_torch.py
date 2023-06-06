@@ -61,8 +61,10 @@ class GridWorldEnv(gym.Env):
         if type(action) == torch.Tensor:
             done = self.current_step ==  self.max_ep_len
             new_loc = self.compute_next_loc(action)
+            print(self.img_gt.shape)
+            pixel_value = self.img_gt[:,new_loc[0], new_loc[1]]
             discover = not torch.equal(pixel_value, self.img_visualization[:,new_loc[0],new_loc[1]])
-            self.img_visualization[:,new_loc[0],new_loc[1]] = torch.tensor([0, 0, 0]) if torch.equal(pixel_value, torch.tensor([0, 0, 0])) else pixel_value
+            self.img_visualization[:,new_loc[0], new_loc[1]] =  pixel_value
             ob = self.img_visualization
             self.current_step += 1
             self.current_loc = new_loc
@@ -76,7 +78,7 @@ class GridWorldEnv(gym.Env):
             new_loc = self.compute_next_loc(move)
             pixel_value = self.img_gt[tuple(new_loc)]
             discover = not torch.equal(pixel_value, self.img_visualization[:,new_loc[0],new_loc[1]])
-            self.img_visualization[:,new_loc[0],new_loc[1]] = torch.tensor([0, 0, 0]) if torch.equal(pixel_value, torch.tensor([0, 0, 0])) else pixel_value
+            self.img_visualization[:,tuple(new_loc)] =  pixel_value
             ob = self.img_visualization
             self.current_step += 1
             self.current_loc = new_loc
