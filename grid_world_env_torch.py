@@ -8,6 +8,7 @@ import time
 from data import DataLoader
 import torchvision
 from copy import deepcopy
+import numpy as np
 
 action_map = {
     0: 'up',
@@ -35,7 +36,16 @@ class GridWorldEnv(gym.Env):
         self.discover = True
         self.explorer = None 
         self.discriminator = None 
-          
+        self.move_dim = 4
+        self.num_classes = 10
+        self.action_space = gym.spaces.Dict({"move": gym.spaces.Discrete(self.move_dim),
+                                             "prediction": gym.spaces.Discrete(self.num_classes),
+                                             "probs": gym.spaces.Box(low=0, high=1, shape=(self.num_classes,)),
+                                             "max_prob": gym.spaces.Box(low=0, high=1, shape=(1,)),
+                                             "done": gym.spaces.Discrete(2)})
+        self.observation_space = gym.spaces.Box(low=np.zeros((1, HEIGHT, WIDTH)),
+                                                high=np.full((1, HEIGHT, WIDTH), 255), dtype=np.uint8)
+        
     def reset(self):
         """ return initial observations"""
         # red is unexplored in visualization

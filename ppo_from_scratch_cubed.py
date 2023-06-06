@@ -8,7 +8,7 @@ import misc_utils as mu
 import torch.optim as optim
 import time as time 
 from ppo_discrete import Agent, VecPyTorch
-from stable_baselines3.common.vec_env import  SubprocVecEnv 
+from stable_baselines3.common.vec_env import  SubprocVecEnv, DummyVecEnv
 import numpy as np
 import torch.nn as nn  
 import gym
@@ -74,7 +74,7 @@ class CoTrainingAlgorithm():
         self.width = WIDTH
         self.single_observation_space_shape = (HEIGHT, WIDTH)
         self.single_action_space_shape = (self.action_dim,)
-        self.seed = time.time()
+        self.seed = int(time.time())
         self.env_images = iter(self.dataloader.return_trainloader())
 
         #storage params
@@ -238,10 +238,13 @@ class CoTrainingAlgorithm():
                 img = info['img']
                 self.discriminator_dataset.add_data(img, info['label'])
             
-    def co_training_loop(self):    
-        self.envs = VecPyTorch(SubprocVecEnv([self.make_env(self.seed + i) for i in range(self.num_parralel_envs)], "fork"), self.device)
+    def co_training_loop(self):  
+        print("XXXXXX HERE XXXXXXX")  
+        self.envs = VecPyTorch(DummyVecEnv([self.make_env(self.seed+i) for i in range(self.num_parralel_envs)]), self.device)
         next_obs = torch.Tensor(self.envs.reset()).to(self.device)
         next_done = torch.zeros(self.num_parralel_envs).to(self.device)
+        print("XXXXXX HERE XXXXXXX")
+
 
         for update_num in range(1, self.num_updates+1):
             self.train_discriminator()
@@ -272,9 +275,8 @@ class CoTrainingAlgorithm():
                               batch_values=batch_values)
             
 if __name__ == "__main__":
-    print("Here")
     co_trainer = CoTrainingAlgorithm(num_parralel_envs=4,num_total_timesteps=1e5, num_steps=MAX_EP_LEN)
-    print("Here")
     co_trainer.generate_training_data()
     co_trainer.train_discriminator()
+    print("XXXXXX HERE XXXXXXX")
     co_trainer.co_training_loop()

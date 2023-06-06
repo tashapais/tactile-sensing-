@@ -431,6 +431,7 @@ class VecPyTorch(VecEnvWrapper):
         self.device = device
 
     def reset(self):
+        print(self.venv)
         obs = self.venv.reset()
         obs = torch.from_numpy(obs).float().to(self.device)
         return obs
