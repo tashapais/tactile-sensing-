@@ -76,7 +76,6 @@ class CoTrainingAlgorithm():
         self.single_action_space_shape = (self.action_dim,)
         self.seed = time.time()
         self.env_images = iter(self.dataloader.return_trainloader())
-        self.envs = VecPyTorch(SubprocVecEnv([self.make_env(self.seed + i) for i in range(self.num_parralel_envs)], "fork"), self.device)
 
         #storage params
         self.obs = torch.zeros((self.num_steps, self.num_parralel_envs) + self.single_observation_space_shape).to(self.device)
@@ -139,7 +138,7 @@ class CoTrainingAlgorithm():
             self.dones[step] = next_done
 
             with torch.no_grad():
-                move, logprob, _ = self.agent.get_action_and_move(next_obs, self.discriminator)
+                move, logprob, _ = self.agent.get_move(next_obs, self.discriminator)
                 value = self.agent.get_value(next_obs)
 
             self.values[step] = value.flatten()
@@ -240,6 +239,7 @@ class CoTrainingAlgorithm():
                 self.discriminator_dataset.add_data(img, info['label'])
             
     def co_training_loop(self):    
+        self.envs = VecPyTorch(SubprocVecEnv([self.make_env(self.seed + i) for i in range(self.num_parralel_envs)], "fork"), self.device)
         next_obs = torch.Tensor(self.envs.reset()).to(self.device)
         next_done = torch.zeros(self.num_parralel_envs).to(self.device)
 
@@ -272,7 +272,9 @@ class CoTrainingAlgorithm():
                               batch_values=batch_values)
             
 if __name__ == "__main__":
+    print("Here")
     co_trainer = CoTrainingAlgorithm(num_parralel_envs=4,num_total_timesteps=1e5, num_steps=MAX_EP_LEN)
+    print("Here")
     co_trainer.generate_training_data()
     co_trainer.train_discriminator()
     co_trainer.co_training_loop()

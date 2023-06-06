@@ -334,7 +334,7 @@ def wrap_pytorch(env):
 
 
 #the explorer agenet
-class          Agent(nn.Module):
+class Agent(nn.Module):
     def __init__(self, action_dim, device, frames=1, img_size=32):
         super(Agent, self).__init__()
         self.device = device
@@ -362,12 +362,11 @@ class          Agent(nn.Module):
         x = F.relu(x)
         return x
 
-    def get_action_and_move(self, x, action=None):
+    def get_move(self, x, action=None):
         logits = self.actor(self.forward(x))
         probs = Categorical(logits=logits)
         if action is None:
             action = probs.sample()
-
 
         return action, probs.log_prob(action), probs.entropy()
 

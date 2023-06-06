@@ -57,28 +57,40 @@ class GridWorldEnv(gym.Env):
         return self.current_step>=self.max_ep_len
 
     def step(self, action):
-        move = action['move']
-        prediction = action['prediction']
-        done = action['done']
-
-        new_loc = self.compute_next_loc(move)
-        pixel_value = self.img_gt[tuple(new_loc)]
-        discover = not torch.equal(pixel_value, self.img_visualization[:,new_loc[0],new_loc[1]])
-        self.img_visualization[:,new_loc[0],new_loc[1]] = torch.tensor([0, 0, 0]) if torch.equal(pixel_value, torch.tensor([0, 0, 0])) else pixel_value
-        ob = self.img_visualization
-        self.current_step += 1
-        self.current_loc = new_loc
-        reward = 1 if prediction == self.label else 0
-
-        done = self.current_step == self.max_ep_len
-
-        info = {'discover': discover,
-                'img': deepcopy(ob),
-                'label': self.label,
-                'prediction':prediction}
+        print(action)
+        if type(action) == torch.Tensor:
+            done = self.current_step ==  self.max_ep_len
+            new_loc = self.compute_next_loc(action)
+            discover = not torch.equal(pixel_value, self.img_visualization[:,new_loc[0],new_loc[1]])
+            self.img_visualization[:,new_loc[0],new_loc[1]] = torch.tensor([0, 0, 0]) if torch.equal(pixel_value, torch.tensor([0, 0, 0])) else pixel_value
+            ob = self.img_visualization
+            self.current_step += 1
+            self.current_loc = new_loc
+            return done, ob
         
-        done = self.current_step == self.max_ep_len
-        return ob, reward, done, info
+        else:
+            move = action['move']
+            prediction = action['prediction']
+            done = action['done']
+
+            new_loc = self.compute_next_loc(move)
+            pixel_value = self.img_gt[tuple(new_loc)]
+            discover = not torch.equal(pixel_value, self.img_visualization[:,new_loc[0],new_loc[1]])
+            self.img_visualization[:,new_loc[0],new_loc[1]] = torch.tensor([0, 0, 0]) if torch.equal(pixel_value, torch.tensor([0, 0, 0])) else pixel_value
+            ob = self.img_visualization
+            self.current_step += 1
+            self.current_loc = new_loc
+            reward = 1 if prediction == self.label else 0
+
+            done = self.current_step == self.max_ep_len
+
+            info = {'discover': discover,
+                    'img': deepcopy(ob),
+                    'label': self.label,
+                    'prediction':prediction}
+            
+            done = self.current_step == self.max_ep_len
+            return ob, reward, done, info
 
 
 
@@ -98,24 +110,3 @@ class GridWorldEnv(gym.Env):
         else:
             raise NotImplementedError('no such action!')
         return (x, y)
-if __name__ == "__main__":
-    data_loader = DataLoader(batch_size=NUM_EPISODES)
-    train_loader = data_loader.return_trainloader()
-    test_loader = data_loader.return_testloader()
-    train_iter = iter(train_loader)
-    test_iter = iter(test_loader)
-    images, labels = next(train_iter)
-    
-    for i in range(NUM_EPISODES):
-        label, image = labels[i], images[i]
-        grid_world_env = GridWorldEnv(max_ep_len=MAX_EP_LEN, 
-                                label=label,
-                                image=image)
-        initial_ob = grid_world_env.reset()
-        done = False
-        while not done:
-            action = grid_world_env.action_space.sample()
-            obs, reward, done, info = grid_world_env.step(action)
-            if done:
-                print(grid_world_env.current_step)
-        print(i)
