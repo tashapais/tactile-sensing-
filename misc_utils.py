@@ -3,9 +3,6 @@ import sys
 from collections import OrderedDict
 import os
 import csv
-import pybullet_data
-import pybullet as p
-import pybullet_utils as pu
 import pandas as pd
 from math import radians, cos, sin, sqrt, exp
 import numpy as np

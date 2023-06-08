@@ -127,6 +127,8 @@ class CoTrainingAlgorithm():
             env.action_space.seed(seed)
             env.observation_space.seed(seed)
             return env
+        
+        print("thunk returned seed=",seed)
         return thunk
 
     def rollout(self, next_obs, next_done):
@@ -240,8 +242,12 @@ class CoTrainingAlgorithm():
         print("Line 239")
         if self.multiprocess:
             self.envs = VecPyTorch(SubprocVecEnv([self.make_env(self.seed+i) for i in range(self.num_parralel_envs)], 'fork'), self.device)
+            #could this have anything to do with the device at all????
+            #few things to try: 1. us the sub proc vec env with one if self.num_parralel_envs = 1, simple script to test out a simple env, and test out subprocvecenv class
+            #go to github to stable baselines => got to stable baselines and search in their issues you might. 
+            #write a script to reproduce the error create a simple script that recreates the error. 
         else:
-            self.envs = VecPyTorch(DummyVecEnv([self.make_env(self.seed+i) for i in range(self.num_parralel_envs)], 'fork'), self.device)
+            self.envs = VecPyTorch(DummyVecEnv([self.make_env(self.seed+i) for i in range(self.num_parralel_envs)]), self.device)
 
         # self.envs = DummyVecEnv([self.make_env(self.seed+i) for i in range(self.num_parralel_envs)])
         # self.envs = SubprocVecEnv([self.make_env(self.seed+i) for i in range(self.num_parralel_envs)], 'fork')
@@ -279,7 +285,7 @@ class CoTrainingAlgorithm():
                               batch_values=batch_values)
             
 if __name__ == "__main__":
-    co_trainer = CoTrainingAlgorithm(num_parralel_envs=4,num_total_timesteps=1e5, num_steps=MAX_EP_LEN, multiprocess=False)
+    co_trainer = CoTrainingAlgorithm(num_parralel_envs=16,num_total_timesteps=1e5, num_steps=MAX_EP_LEN, multiprocess=True)
     co_trainer.generate_training_data()
     co_trainer.train_discriminator()
     co_trainer.co_training_loop()
