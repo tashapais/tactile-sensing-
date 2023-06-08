@@ -27,7 +27,7 @@ class CoTrainingAlgorithm():
                  learning_rate=1e-3, 
                  action_dim=4, 
                  anneal_lr=False, 
-                 multiprocess=False, 
+                 multiprocess=True, 
                  gamma=0.95, 
                  epochs=4, 
                  clip_coef=0.1, 
@@ -35,7 +35,8 @@ class CoTrainingAlgorithm():
                  entropy_coef=0.05, 
                  value_coef=0.5, 
                  max_grad_norm=0.5, 
-                 terminal_confidence=0.95):
+                 terminal_confidence=0.95, 
+                 ):
         
         #training params
         self.device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
@@ -43,7 +44,7 @@ class CoTrainingAlgorithm():
         self.discriminator_dataset = None
         self.discriminator = mu.construct_discriminator(discriminator_type="learned", height=HEIGHT,width=WIDTH,lr=0.001)
         self.action_dim = action_dim
-        self.num_parralel_envs = num_parralel_envs
+        self.num_parralel_envs = num_parralel_envs if multiprocess else 1
         self.agent = Agent(action_dim=self.action_dim, device=self.device, num_envs=self.num_parralel_envs)
         self.num_total_timesteps = num_total_timesteps
         self.num_steps = num_steps
@@ -236,7 +237,15 @@ class CoTrainingAlgorithm():
                 self.discriminator_dataset.add_data(img, info['label'])
             
     def co_training_loop(self):  
-        self.envs = VecPyTorch(SubprocVecEnv([self.make_env(self.seed+i) for i in range(self.num_parralel_envs)]), self.device)
+        print("Line 239")
+        if self.multiprocess:
+            self.envs = VecPyTorch(SubprocVecEnv([self.make_env(self.seed+i) for i in range(self.num_parralel_envs)], 'fork'), self.device)
+        else:
+            self.envs = VecPyTorch(DummyVecEnv([self.make_env(self.seed+i) for i in range(self.num_parralel_envs)], 'fork'), self.device)
+
+        # self.envs = DummyVecEnv([self.make_env(self.seed+i) for i in range(self.num_parralel_envs)])
+        # self.envs = SubprocVecEnv([self.make_env(self.seed+i) for i in range(self.num_parralel_envs)], 'fork')
+        print("Line 241")
         next_obs = torch.Tensor(self.envs.reset()).to(self.device)
         next_done = torch.zeros(self.num_parralel_envs).to(self.device)
 
@@ -270,7 +279,7 @@ class CoTrainingAlgorithm():
                               batch_values=batch_values)
             
 if __name__ == "__main__":
-    co_trainer = CoTrainingAlgorithm(num_parralel_envs=1,num_total_timesteps=1e5, num_steps=MAX_EP_LEN)
+    co_trainer = CoTrainingAlgorithm(num_parralel_envs=4,num_total_timesteps=1e5, num_steps=MAX_EP_LEN, multiprocess=False)
     co_trainer.generate_training_data()
     co_trainer.train_discriminator()
     co_trainer.co_training_loop()
