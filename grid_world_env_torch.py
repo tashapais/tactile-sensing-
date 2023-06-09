@@ -82,7 +82,6 @@ class GridWorldEnv(gym.Env):
             done = action['done']
 
             new_loc = self.compute_next_loc(move)
-            print("New loc=",new_loc)
             pixel_value = self.img_gt[:,new_loc[0],new_loc[1]]
             discover = not torch.equal(pixel_value, self.img_visualization[:,new_loc[0],new_loc[1]])
             self.img_visualization[:,new_loc[0],new_loc[1]] =  pixel_value
