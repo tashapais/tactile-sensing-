@@ -4,56 +4,58 @@ from ppo_discrete import Agent
 import tqdm
 from grid_world_env_torch import GridWorldEnv
 from data import DataLoader
-import misc_utils as mu 
+import misc_utils as mu
 import torch.optim as optim
-import time as time 
+import time as time
 from ppo_discrete import Agent, VecPyTorch
-from stable_baselines3.common.vec_env import  SubprocVecEnv, DummyVecEnv
+from stable_baselines3.common.vec_env import SubprocVecEnv, DummyVecEnv
 import numpy as np
-import torch.nn as nn  
+import torch.nn as nn
 import gym
 
 HEIGHT, WIDTH = 32, 32
 MAX_EP_LEN = 1000
 BUFFER_SIZE = 100000
 
-class CoTrainingAlgorithm():
+
+class CoTrainingAlgorithm:
     def __init__(self,
-                 num_parralel_envs, 
-                 num_total_timesteps, 
-                 num_steps, 
-                 gae_lambda=0.95, 
+                 num_parralel_envs,
+                 num_total_timesteps,
+                 num_steps,
+                 gae_lambda=0.95,
                  num_minibatches=4,
-                 learning_rate=1e-3, 
-                 action_dim=4, 
-                 anneal_lr=False, 
-                 multiprocess=True, 
-                 gamma=0.95, 
-                 epochs=1, 
-                 clip_coef=0.1, 
-                 clip_vloss=True, 
-                 entropy_coef=0.05, 
-                 value_coef=0.5, 
-                 max_grad_norm=0.5, 
-                 terminal_confidence=0.95, 
+                 learning_rate=1e-3,
+                 action_dim=4,
+                 anneal_lr=False,
+                 multiprocess=True,
+                 gamma=0.95,
+                 epochs=1,
+                 clip_coef=0.1,
+                 clip_vloss=True,
+                 entropy_coef=0.05,
+                 value_coef=0.5,
+                 max_grad_norm=0.5,
+                 terminal_confidence=0.95,
                  ):
-        
-        #training params
+
+        # training params
         self.device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
         self.dataloader = DataLoader(batch_size=1)
         self.discriminator_dataset = None
-        self.discriminator = mu.construct_discriminator(discriminator_type="learned", height=HEIGHT,width=WIDTH,lr=0.001)
+        self.discriminator = mu.construct_discriminator(discriminator_type="learned", height=HEIGHT, width=WIDTH,
+                                                        lr=0.001)
         self.action_dim = action_dim
-        self.num_parralel_envs = num_parralel_envs #if multiprocess else 1
+        self.num_parralel_envs = num_parralel_envs  # if multiprocess else 1
         self.agent = Agent(action_dim=self.action_dim, device=self.device, num_envs=self.num_parralel_envs)
         self.num_total_timesteps = num_total_timesteps
         self.num_steps = num_steps
         self.num_minibatches = num_minibatches
-        self.batch_size = int(num_steps*num_parralel_envs)
-        self.minibatch_size = int(self.batch_size//self.num_minibatches)
-        self.num_updates = int(num_total_timesteps//self.batch_size)
+        self.batch_size = int(num_steps * num_parralel_envs)
+        self.minibatch_size = int(self.batch_size // self.num_minibatches)
+        self.num_updates = int(num_total_timesteps // self.batch_size)
         self.lr = learning_rate
-        self.optimizer = optim.Adam(self.agent.parameters(), lr=self.lr, eps=1e-5) 
+        self.optimizer = optim.Adam(self.agent.parameters(), lr=self.lr, eps=1e-5)
         self.global_step = 0
         self.anneal_lr = anneal_lr
         self.multiprocess = multiprocess
@@ -66,8 +68,8 @@ class CoTrainingAlgorithm():
         self.value_coef = value_coef
         self.max_grad_norm = max_grad_norm
         self.terminal_confidence = terminal_confidence
-       
-        #env parameters
+
+        # env parameters
         self.height = HEIGHT
         self.width = WIDTH
         self.single_observation_space_shape = (3, HEIGHT, WIDTH)
@@ -75,32 +77,37 @@ class CoTrainingAlgorithm():
         self.seed = int(time.time())
         self.env_images = iter(self.dataloader.return_trainloader())
         if self.multiprocess:
-            #could this have anything to do with the device at all????
-            #few things to try: 1. us the sub proc vec env with one if self.num_parralel_envs = 1, simple script to test out a simple env, and test out subprocvecenv class
-            #go to github to stable baselines => got to stable baselines and search in their issues you might. 
-            #write a script to reproduce the error create a simple script that recreates the error. 
-            self.envs = VecPyTorch(SubprocVecEnv([self.make_env(self.seed+i) for i in range(self.num_parralel_envs)], 'fork'), self.device)
+            # could this have anything to do with the device at all????
+            # few things to try: 1. us the sub proc vec env with one if self.num_parralel_envs = 1, simple script to test out a simple env, and test out subprocvecenv class
+            # go to github to stable baselines => got to stable baselines and search in their issues you might.
+            # write a script to reproduce the error create a simple script that recreates the error.
+            self.envs = VecPyTorch(
+                SubprocVecEnv([self.make_env(self.seed + i) for i in range(self.num_parralel_envs)], 'fork'),
+                self.device)
         else:
-            self.envs = VecPyTorch(DummyVecEnv([self.make_env(self.seed+i) for i in range(self.num_parralel_envs)]), self.device)
-        #storage params
-        self.obs = torch.zeros((self.num_steps, self.num_parralel_envs) + self.envs.observation_space.shape).to(self.device)
-        self.moves = torch.zeros((self.num_steps, self.num_parralel_envs) + self.envs.action_space['move'].shape).to(self.device)
+            self.envs = VecPyTorch(DummyVecEnv([self.make_env(self.seed + i) for i in range(self.num_parralel_envs)]),
+                                   self.device)
+        # storage params
+        self.obs = torch.zeros((self.num_steps, self.num_parralel_envs) + self.envs.observation_space.shape).to(
+            self.device)
+        self.moves = torch.zeros((self.num_steps, self.num_parralel_envs) + self.envs.action_space['move'].shape).to(
+            self.device)
         self.logprobs = torch.zeros((self.num_steps, self.num_parralel_envs)).to(self.device)
         self.rewards = torch.zeros((self.num_steps, self.num_parralel_envs)).to(self.device)
         self.dones = torch.zeros((self.num_steps, self.num_parralel_envs)).to(self.device)
         self.values = torch.zeros((self.num_steps, self.num_parralel_envs)).to(self.device)
-        
+
     def generate_training_data(self):
         cifar_dataset = ImageDataset(buffer_size=BUFFER_SIZE, height=HEIGHT, width=WIDTH)
         agent = Agent(action_dim=4, device=self.device, num_envs=1)
         pbar = tqdm.tqdm(total=cifar_dataset.buffer_size)
 
         train_cifar_iterator = iter(self.dataloader.return_trainloader())
-        while len(cifar_dataset)<cifar_dataset.buffer_size: 
+        while len(cifar_dataset) < cifar_dataset.buffer_size:
             original_image, label = next(train_cifar_iterator)
             grid_world_env = GridWorldEnv(max_ep_len=MAX_EP_LEN,
-                                    label=label[0],
-                                    image=original_image[0])
+                                          label=label[0],
+                                          image=original_image[0])
             img = grid_world_env.reset()
             img = img.to(self.device)
             done = False
@@ -108,13 +115,13 @@ class CoTrainingAlgorithm():
                 action, log_prob, entropy = agent.get_move(torch.unsqueeze(img, 0))
                 done, img = grid_world_env.step(action)
                 img = img.to(self.device)
-                cifar_dataset.add_data(torch.unsqueeze(img,dim=0), label)
+                cifar_dataset.add_data(torch.unsqueeze(img, dim=0), label)
                 pbar.update(1)
         pbar.close()
         self.discriminator_dataset = cifar_dataset
-    
+
     def train_discriminator(self):
-        if self.discriminator_dataset != None:
+        if self.discriminator_dataset is not None:
             train_loader, test_loader = mu.construct_loaders(self.discriminator_dataset, split=0.2)
             discriminator_path, discriminator_train_loss, discriminator_train_acc, discriminator_test_loss, discriminator_test_acc, stats = self.discriminator.learn(
                 epochs=15,
@@ -123,7 +130,6 @@ class CoTrainingAlgorithm():
             print(stats)
         else:
             raise Exception("Discriminator dataset not configured yet")
-        
 
     def make_env(self, seed):
         def thunk():
@@ -134,13 +140,13 @@ class CoTrainingAlgorithm():
             env.action_space.seed(seed)
             env.observation_space.seed(seed)
             return env
-        
+
         return thunk
 
     def rollout(self, next_obs, next_done):
         for step in range(self.num_steps):
             self.global_step += self.num_parralel_envs
-            self.obs[step] = next_obs   
+            self.obs[step] = next_obs
             self.dones[step] = next_done
 
             with torch.no_grad():
@@ -154,21 +160,19 @@ class CoTrainingAlgorithm():
             prediction, max_prob, probs = self.discriminator.predict(self.obs[step].cpu().numpy())
 
             action = [{'move': move[i].item(),
-                        'prediction': prediction[i],
-                        'max_prob': max_prob[i],
-                        'probs': probs[i],
-                        'done': 1 if max_prob[i] >= self.terminal_confidence else 0
-                        } for i in range(self.num_parralel_envs)]
-
+                       'prediction': prediction[i],
+                       'max_prob': max_prob[i],
+                       'probs': probs[i],
+                       'done': 1 if max_prob[i] >= self.terminal_confidence else 0
+                       } for i in range(self.num_parralel_envs)]
 
             next_obs, reward, dones, infos = self.envs.step(action)
             self.rewards[step] = torch.tensor(reward).to(self.device).view(-1)
             next_obs, next_done = torch.Tensor(next_obs).to(self.device), torch.Tensor(dones).to(self.device)
 
             self.add_new_data(infos, dones)
-            
+
         return next_obs, next_done
-    
 
     def advantage_return_computation(self, next_obs, next_done):
         with torch.no_grad():
@@ -188,8 +192,6 @@ class CoTrainingAlgorithm():
 
         return advantages, returns
 
-
-
     def optimization(self, batch_obs, batch_logprobs, batch_moves, batch_advantages, batch_returns, batch_values):
         batch_indices = np.arange(self.batch_size)
         clipfracs = []
@@ -202,7 +204,8 @@ class CoTrainingAlgorithm():
                 minibatch_indices = batch_order[start:end]
                 minibatch_advantages = batch_advantages[minibatch_indices]
 
-                _, newlogprob, entropy = self.agent.get_move(batch_obs[minibatch_indices], batch_moves.long()[minibatch_indices])
+                _, newlogprob, entropy = self.agent.get_move(batch_obs[minibatch_indices],
+                                                             batch_moves.long()[minibatch_indices])
                 entropy_loss = entropy.mean()
 
                 logratio = newlogprob - batch_logprobs[minibatch_indices]
@@ -217,19 +220,18 @@ class CoTrainingAlgorithm():
                 pg_loss2 = -minibatch_advantages * torch.clamp(ratio, 1 - self.clip_coef, 1 + self.clip_coef)
                 pg_loss = torch.max(pg_loss1, pg_loss2).mean()
 
-
                 # Value loss
                 new_values = self.agent.get_value(batch_obs[minibatch_indices]).view(-1)
                 if self.clip_vloss:
                     v_loss_unclipped = ((new_values - batch_returns[minibatch_indices]) ** 2)
-                    v_clipped = batch_values[minibatch_indices] + torch.clamp(new_values - batch_values[minibatch_indices],
-                                                                    -self.clip_coef, self.clip_coef)
+                    v_clipped = batch_values[minibatch_indices] + torch.clamp(
+                        new_values - batch_values[minibatch_indices],
+                        -self.clip_coef, self.clip_coef)
                     v_loss_clipped = (v_clipped - batch_returns[minibatch_indices]) ** 2
                     v_loss_max = torch.max(v_loss_unclipped, v_loss_clipped)
                     v_loss = 0.5 * v_loss_max.mean()
                 else:
                     v_loss = 0.5 * ((new_values - batch_returns[minibatch_indices]) ** 2).mean()
-
 
                 loss = pg_loss - self.entropy_coef * entropy_loss + v_loss * self.value_coef
 
@@ -237,30 +239,28 @@ class CoTrainingAlgorithm():
                 loss.backward()
                 nn.utils.clip_grad_norm_(self.agent.parameters(), self.max_grad_norm)
                 self.optimizer.step()
-    
+
     def add_new_data(self, infos, dones):
         for (i, info, done) in zip(range(len(infos)), infos, dones):
             if info['discover']:
                 img = info['img']
-                self.discriminator_dataset.add_data(torch.unsqueeze(img,0), [info['label']])
-            
-    def co_training_loop(self):  
+                self.discriminator_dataset.add_data(torch.unsqueeze(img, 0), [info['label']])
+
+    def co_training_loop(self):
         next_obs = torch.Tensor(self.envs.reset()).to(self.device)
         next_done = torch.zeros(self.num_parralel_envs).to(self.device)
 
-        for update_num in range(1, self.num_updates+1):
+        for update_num in range(1, self.num_updates + 1):
             self.train_discriminator()
 
             if self.anneal_lr:
                 frac = 1.0 - (update_num - 1.0) / self.num_updates
-                self.lr = self.lr*frac
+                self.lr = self.lr * frac
                 self.optimizer.param_groups[0]["lr"] = self.lr
 
             next_obs, next_done = self.rollout(next_obs, next_done)
             advantages, returns = self.advantage_return_computation(next_obs=next_obs, next_done=next_done)
-            
 
-            
             batch_obs = self.obs.reshape((-1,) + self.envs.observation_space.shape)
             batch_logprobs = self.logprobs.reshape(-1)
             batch_moves = self.moves.reshape((-1,) + self.envs.action_space['move'].shape)
@@ -268,16 +268,17 @@ class CoTrainingAlgorithm():
             batch_returns = returns.reshape(-1)
             batch_values = self.values.reshape(-1)
 
-
-            self.optimization(batch_obs=batch_obs, 
+            self.optimization(batch_obs=batch_obs,
                               batch_logprobs=batch_logprobs,
-                              batch_moves=batch_moves, 
-                              batch_advantages=batch_advantages, 
-                              batch_returns=batch_returns, 
+                              batch_moves=batch_moves,
+                              batch_advantages=batch_advantages,
+                              batch_returns=batch_returns,
                               batch_values=batch_values)
-            
+
+
 if __name__ == "__main__":
-    co_trainer = CoTrainingAlgorithm(num_parralel_envs=2, num_total_timesteps=1e4,num_steps=MAX_EP_LEN, multiprocess=False)
+    co_trainer = CoTrainingAlgorithm(num_parralel_envs=2, num_total_timesteps=1e4, num_steps=MAX_EP_LEN,
+                                     multiprocess=False)
     co_trainer.generate_training_data()
     co_trainer.train_discriminator()
     co_trainer.co_training_loop()
