@@ -344,7 +344,7 @@ class Agent(nn.Module):
         #n, 96, 30, 30 
         self.conv2 = nn.Conv2d(96, 192, 3, 1)
         #n, 192, 28, 28 
-        self.fc1 = nn.Linear(37632*num_envs, 128)
+        self.fc1 = nn.Linear(37632, 128)
         self.actor = layer_init(nn.Linear(128, action_dim), std=0.01)
         self.critic = layer_init(nn.Linear(128, 1), std=1)
 
@@ -357,7 +357,7 @@ class Agent(nn.Module):
         x = self.conv2(x)
         x = F.relu(x)
         x = F.max_pool2d(x, 2)
-        x = torch.flatten(x)
+        x = torch.flatten(x,start_dim=1,end_dim=-1)
         x = self.fc1(x)
         x = F.relu(x)
         return x
@@ -430,8 +430,6 @@ class VecPyTorch(VecEnvWrapper):
         self.device = device
 
     def reset(self):
-        print("YYYYYYYYYYYYYYY")
-        print(self.venv.reset())
         obs = self.venv.reset()
         obs = torch.from_numpy(obs).float().to(self.device)
         return obs

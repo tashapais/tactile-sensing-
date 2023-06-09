@@ -29,7 +29,7 @@ class CoTrainingAlgorithm():
                  anneal_lr=False, 
                  multiprocess=True, 
                  gamma=0.95, 
-                 epochs=4, 
+                 epochs=1, 
                  clip_coef=0.1, 
                  clip_vloss=True, 
                  entropy_coef=0.05, 
@@ -44,7 +44,7 @@ class CoTrainingAlgorithm():
         self.discriminator_dataset = None
         self.discriminator = mu.construct_discriminator(discriminator_type="learned", height=HEIGHT,width=WIDTH,lr=0.001)
         self.action_dim = action_dim
-        self.num_parralel_envs = num_parralel_envs if multiprocess else 1
+        self.num_parralel_envs = num_parralel_envs #if multiprocess else 1
         self.agent = Agent(action_dim=self.action_dim, device=self.device, num_envs=self.num_parralel_envs)
         self.num_total_timesteps = num_total_timesteps
         self.num_steps = num_steps
@@ -74,10 +74,17 @@ class CoTrainingAlgorithm():
         self.single_action_space_shape = (self.action_dim,)
         self.seed = int(time.time())
         self.env_images = iter(self.dataloader.return_trainloader())
-
+        if self.multiprocess:
+            self.envs = VecPyTorch(SubprocVecEnv([self.make_env(self.seed+i) for i in range(self.num_parralel_envs)], 'fork'), self.device)
+            #could this have anything to do with the device at all????
+            #few things to try: 1. us the sub proc vec env with one if self.num_parralel_envs = 1, simple script to test out a simple env, and test out subprocvecenv class
+            #go to github to stable baselines => got to stable baselines and search in their issues you might. 
+            #write a script to reproduce the error create a simple script that recreates the error. 
+        else:
+            self.envs = VecPyTorch(DummyVecEnv([self.make_env(self.seed+i) for i in range(self.num_parralel_envs)]), self.device)
         #storage params
-        self.obs = torch.zeros((self.num_steps, self.num_parralel_envs) + self.single_observation_space_shape).to(self.device)
-        self.moves = torch.zeros((self.num_steps, self.num_parralel_envs) + self.single_action_space_shape).to(self.device)
+        self.obs = torch.zeros((self.num_steps, self.num_parralel_envs) + self.envs.observation_space.shape).to(self.device)
+        self.moves = torch.zeros((self.num_steps, self.num_parralel_envs) + self.envs.action_space['move'].shape).to(self.device)
         self.logprobs = torch.zeros((self.num_steps, self.num_parralel_envs)).to(self.device)
         self.rewards = torch.zeros((self.num_steps, self.num_parralel_envs)).to(self.device)
         self.dones = torch.zeros((self.num_steps, self.num_parralel_envs)).to(self.device)
@@ -98,7 +105,7 @@ class CoTrainingAlgorithm():
             img = img.to(self.device)
             done = False
             while not done and not len(cifar_dataset) == cifar_dataset.buffer_size:
-                action, log_prob, entropy = agent.get_move(img)
+                action, log_prob, entropy = agent.get_move(torch.unsqueeze(img, 0))
                 done, img = grid_world_env.step(action)
                 img = img.to(self.device)
                 cifar_dataset.add_data(torch.unsqueeze(img,dim=0), label)
@@ -113,7 +120,7 @@ class CoTrainingAlgorithm():
                 epochs=15,
                 train_loader=train_loader,
                 test_loader=test_loader)
-            #print(stats)
+            print(stats)
         else:
             raise Exception("Discriminator dataset not configured yet")
         
@@ -128,7 +135,6 @@ class CoTrainingAlgorithm():
             env.observation_space.seed(seed)
             return env
         
-        print("thunk returned seed=",seed)
         return thunk
 
     def rollout(self, next_obs, next_done):
@@ -155,7 +161,7 @@ class CoTrainingAlgorithm():
                         } for i in range(self.num_parralel_envs)]
 
 
-            next_obs, reward, dones, infos = self.envs.step(action.cpu().numpy())
+            next_obs, reward, dones, infos = self.envs.step(action)
             self.rewards[step] = torch.tensor(reward).to(self.device).view(-1)
             next_obs, next_done = torch.Tensor(next_obs).to(self.device), torch.Tensor(dones).to(self.device)
 
@@ -236,25 +242,13 @@ class CoTrainingAlgorithm():
         for (i, info, done) in zip(range(len(infos)), infos, dones):
             if info['discover']:
                 img = info['img']
-                self.discriminator_dataset.add_data(img, info['label'])
+                self.discriminator_dataset.add_data(torch.unsqueeze(img,0), [info['label']])
             
     def co_training_loop(self):  
-        print("Line 239")
-        if self.multiprocess:
-            self.envs = VecPyTorch(SubprocVecEnv([self.make_env(self.seed+i) for i in range(self.num_parralel_envs)], 'fork'), self.device)
-            #could this have anything to do with the device at all????
-            #few things to try: 1. us the sub proc vec env with one if self.num_parralel_envs = 1, simple script to test out a simple env, and test out subprocvecenv class
-            #go to github to stable baselines => got to stable baselines and search in their issues you might. 
-            #write a script to reproduce the error create a simple script that recreates the error. 
-        else:
-            self.envs = VecPyTorch(DummyVecEnv([self.make_env(self.seed+i) for i in range(self.num_parralel_envs)]), self.device)
-
         # self.envs = DummyVecEnv([self.make_env(self.seed+i) for i in range(self.num_parralel_envs)])
         # self.envs = SubprocVecEnv([self.make_env(self.seed+i) for i in range(self.num_parralel_envs)], 'fork')
-        print("Line 241")
         next_obs = torch.Tensor(self.envs.reset()).to(self.device)
         next_done = torch.zeros(self.num_parralel_envs).to(self.device)
-
 
         for update_num in range(1, self.num_updates+1):
             self.train_discriminator()
@@ -269,9 +263,9 @@ class CoTrainingAlgorithm():
             
 
             
-            batch_obs = self.obs.reshape((-1,) + self.single_observation_space_shape)
+            batch_obs = self.obs.reshape((-1,) + self.envs.observation_space.shape)
             batch_logprobs = self.logprobs.reshape(-1)
-            batch_moves = self.moves.reshape((-1,) + self.single_action_space_shape)
+            batch_moves = self.moves.reshape((-1,) + self.envs.action_space['move'].shape)
             batch_advantages = advantages.reshape(-1)
             batch_returns = returns.reshape(-1)
             batch_values = self.values.reshape(-1)
@@ -285,7 +279,7 @@ class CoTrainingAlgorithm():
                               batch_values=batch_values)
             
 if __name__ == "__main__":
-    co_trainer = CoTrainingAlgorithm(num_parralel_envs=16,num_total_timesteps=1e5, num_steps=MAX_EP_LEN, multiprocess=True)
+    co_trainer = CoTrainingAlgorithm(num_parralel_envs=2,num_total_timesteps=1e5, num_steps=MAX_EP_LEN, multiprocess=False)
     co_trainer.generate_training_data()
     co_trainer.train_discriminator()
     co_trainer.co_training_loop()
