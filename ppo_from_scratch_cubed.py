@@ -14,8 +14,8 @@ import torch.nn as nn
 import gym
 
 HEIGHT, WIDTH = 32, 32
-MAX_EP_LEN = 10
-BUFFER_SIZE = 100
+MAX_EP_LEN = 1000
+BUFFER_SIZE = 100000
 
 class CoTrainingAlgorithm():
     def __init__(self,
@@ -75,11 +75,11 @@ class CoTrainingAlgorithm():
         self.seed = int(time.time())
         self.env_images = iter(self.dataloader.return_trainloader())
         if self.multiprocess:
-            self.envs = VecPyTorch(SubprocVecEnv([self.make_env(self.seed+i) for i in range(self.num_parralel_envs)], 'fork'), self.device)
             #could this have anything to do with the device at all????
             #few things to try: 1. us the sub proc vec env with one if self.num_parralel_envs = 1, simple script to test out a simple env, and test out subprocvecenv class
             #go to github to stable baselines => got to stable baselines and search in their issues you might. 
             #write a script to reproduce the error create a simple script that recreates the error. 
+            self.envs = VecPyTorch(SubprocVecEnv([self.make_env(self.seed+i) for i in range(self.num_parralel_envs)], 'fork'), self.device)
         else:
             self.envs = VecPyTorch(DummyVecEnv([self.make_env(self.seed+i) for i in range(self.num_parralel_envs)]), self.device)
         #storage params
@@ -245,8 +245,6 @@ class CoTrainingAlgorithm():
                 self.discriminator_dataset.add_data(torch.unsqueeze(img,0), [info['label']])
             
     def co_training_loop(self):  
-        # self.envs = DummyVecEnv([self.make_env(self.seed+i) for i in range(self.num_parralel_envs)])
-        # self.envs = SubprocVecEnv([self.make_env(self.seed+i) for i in range(self.num_parralel_envs)], 'fork')
         next_obs = torch.Tensor(self.envs.reset()).to(self.device)
         next_done = torch.zeros(self.num_parralel_envs).to(self.device)
 
@@ -279,7 +277,7 @@ class CoTrainingAlgorithm():
                               batch_values=batch_values)
             
 if __name__ == "__main__":
-    co_trainer = CoTrainingAlgorithm(num_parralel_envs=2,num_total_timesteps=1e5, num_steps=MAX_EP_LEN, multiprocess=False)
+    co_trainer = CoTrainingAlgorithm(num_parralel_envs=2, num_total_timesteps=1e4,num_steps=MAX_EP_LEN, multiprocess=False)
     co_trainer.generate_training_data()
     co_trainer.train_discriminator()
     co_trainer.co_training_loop()
