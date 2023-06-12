@@ -1,14 +1,9 @@
-import gym 
-import numpy as np 
-import misc_utils as mu 
-from math import radians
-from gym.utils import seeding
-import matplotlib.pyplot as plt
-import time
-from data import DataLoader
-import torchvision    
-import torch 
 from copy import deepcopy
+
+import gym
+import matplotlib.pyplot as plt
+import numpy as np
+import torch
 
 action_map = {
     0: 'up',
@@ -119,28 +114,3 @@ class GridWorldEnv(gym.Env):
         else:
             raise NotImplementedError('no such action!')
         return (x, y)
-
-if __name__ == "__main__":
-    data_loader = DataLoader(batch_size=NUM_EPISODES)
-    train_loader = data_loader.return_trainloader()
-    test_loader = data_loader.return_testloader()
-    train_iter = iter(train_loader)
-    test_iter = iter(test_loader)
-    images, labels = next(train_iter)
-    
-    for i in range(NUM_EPISODES):
-        label, image = labels[i], images[i]
-        grid_world_env = GridWorldEnv(max_ep_len=MAX_EP_LEN, 
-                                label=label,
-                                image=image)
-        initial_ob = grid_world_env.reset()
-        #grid_world_env.render(mode='rgb_array')
-        done = False
-        while not done:
-            action = grid_world_env.action_space.sample()
-            #grid_world_env.render()
-            obs, reward, done, info = grid_world_env.step(action)
-            if done:
-                print(grid_world_env.current_step)
-            #grid_world_env.render()
-        print(i)

@@ -4,8 +4,6 @@ import torch.nn.functional as F
 import tqdm 
 import torch.optim as optim
 import os
-from data import DataLoader
-from logging import Logger
 
 """The discriminator works on a partially revealed image to understand where to go next. 
 """
@@ -164,9 +162,3 @@ class Discriminator_NN(nn.Module):
             log(f're-loaded model path {model_path}')
 
         return model_path, train_loss, train_acc, test_loss, test_acc, stats
-    
-if __name__ == "__main__":
-    discriminator = Discriminator_NN(height=32, width=32, save_dir='../learned_models')
-    data_loader = DataLoader(batch_size=500)
-    train_loader, test_loader = data_loader.return_trainloader(), data_loader.return_testloader()
-    discriminator.learn(epochs=100, train_loader=train_loader, test_loader=test_loader)

@@ -1,12 +1,6 @@
 import gym 
 import torch
-import misc_utils as mu 
-from math import radians
-from gym.utils import seeding
 import matplotlib.pyplot as plt
-import time
-from data import DataLoader
-import torchvision
 from copy import deepcopy
 import numpy as np
 

@@ -1,30 +1,20 @@
 # https://github.com/facebookresearch/torchbeast/blob/master/torchbeast/core/environment.py
 # https://github.com/vwxyzjn/cleanrl/blob/master/cleanrl/ppo_atari.py
 
-import numpy as np
-import misc_utils as mu
 from collections import deque
-import gym
-from gym import spaces
+
 import cv2
+from gym import spaces
+
 cv2.ocl.setUseOpenCL(False)
 import torch
 import torch.nn as nn
-import torch.optim as optim
 import torch.nn.functional as F
 from torch.distributions.categorical import Categorical
-from torch.utils.tensorboard import SummaryWriter
 
-import argparse
-from distutils.util import strtobool
 import numpy as np
 import gym
-from gym.wrappers import TimeLimit, Monitor
-from gym.spaces import Discrete, Box, MultiBinary, MultiDiscrete, Space
-import time
-import random
-import os
-from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecEnvWrapper
+from stable_baselines3.common.vec_env import VecEnvWrapper
 
 
 class NoopResetEnv(gym.Wrapper):

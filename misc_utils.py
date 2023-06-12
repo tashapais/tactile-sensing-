@@ -3,21 +3,16 @@ import sys
 from collections import OrderedDict
 import os
 import csv
-import pandas as pd
-from math import radians, cos, sin, sqrt, exp
+from math import sqrt, exp
 import numpy as np
-import matplotlib.pyplot as plt
 import pybullet_utils as pu
 import yaml
 import json
-from scipy.stats import entropy
-import seaborn as sns
 import matplotlib.pyplot as plt
-import time
 from scipy.ndimage import rotate
 import math
 import torch
-from torch.utils.data import Dataset, DataLoader, random_split
+from torch.utils.data import Dataset, random_split
 
 
 # the definition of these directions are with respect to the occupancy grid
@@ -771,10 +766,11 @@ def seed_env(env, seed):
     env.observation_space.seed(seed)
 
 
-def construct_loaders(dataset, split=0.2, seed=10, train_batch_size=64, test_batch_size=1000):
+def construct_loaders(dataset,relevant_portion, split=0.2, seed=10, train_batch_size=64, test_batch_size=1000):
     dataset_size = len(dataset)
-    test_size = int(np.floor(split * dataset_size))
-    train_size = dataset_size - test_size
+    relevant_size = int(relevant_portion*len(dataset_size))
+    test_size = int(np.floor(split * relevant_size))
+    train_size = relevant_size - test_size
     train_set, test_set = random_split(dataset, [train_size, test_size], generator=torch.Generator().manual_seed(seed))
     train_loader = torch.utils.data.DataLoader(train_set, batch_size=train_batch_size, shuffle=True)
     test_loader = torch.utils.data.DataLoader(test_set, batch_size=test_batch_size, shuffle=True)

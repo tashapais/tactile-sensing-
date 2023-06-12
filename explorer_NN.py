@@ -1,12 +1,7 @@
-import torch 
-import torch.nn as nn 
-from scripy.stats import entropy
-import copy 
-import misc_utils as mu 
-import torch.nn.functional as F
-from torch.distributions.categorical import Categorical
+import torch.nn as nn
+import misc_utils as mu
 import numpy as np
-from ppo_discrete import Scale, layer_init, Agent 
+from ppo_discrete import Agent
 
 
 '''

@@ -1,14 +1,15 @@
-from scipy.stats import entropy
 import copy
-import misc_utils as mu
+
 import cv2
+from scipy.stats import entropy
+
+import misc_utils as mu
+
 cv2.ocl.setUseOpenCL(False)
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-from torch.distributions.categorical import Categorical
 import numpy as np
-from ppo_discrete import Scale, layer_init, Agent
+from ppo_discrete import Agent
 
 
 """ Explorer takes in observations and decides where to move next. it does not control termination """

@@ -2,11 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from torch.optim.lr_scheduler import StepLR
-import numpy as np 
-import os
+import numpy as np
 import misc_utils as mu
-import copy
 import tqdm
 import os
 

@@ -1,6 +1,5 @@
 from discriminator_dataset import ImageDataset
 import torch
-from ppo_discrete import Agent
 import tqdm
 from grid_world_env_torch import GridWorldEnv
 from data import CIFARDataLoader
@@ -16,7 +15,7 @@ from pprint import pprint
 
 HEIGHT, WIDTH = 32, 32
 MAX_EP_LEN = 5000
-BUFFER_SIZE = int(10e6)
+BUFFER_SIZE = int(1e7)
 
 
 class CoTrainingAlgorithm:
@@ -31,7 +30,8 @@ class CoTrainingAlgorithm:
                  anneal_lr=False,
                  multiprocess=True,
                  gamma=0.95,
-                 epochs=1,
+                 explorer_epochs=3,
+                 discriminator_epochs=3,
                  clip_coef=0.1,
                  clip_vloss=True,
                  entropy_coef=0.05,
@@ -61,7 +61,8 @@ class CoTrainingAlgorithm:
         self.multiprocess = multiprocess
         self.gamma = gamma
         self.gae_lambda = gae_lambda
-        self.epochs = epochs
+        self.explorer_epochs = explorer_epochs
+        self.discriminator_epochs = discriminator_epochs
         self.clip_coef = clip_coef
         self.clip_vloss = clip_vloss
         self.entropy_coef = entropy_coef
@@ -122,9 +123,9 @@ class CoTrainingAlgorithm:
 
     def train_discriminator(self):
         if self.discriminator_dataset is not None:
-            train_loader, test_loader = mu.construct_loaders(self.discriminator_dataset, split=0.2)
+            train_loader, test_loader = mu.construct_loaders(self.discriminator_dataset, relevant_portion=1/60, split=0.2)
             discriminator_path, discriminator_train_loss, discriminator_train_acc, discriminator_test_loss, discriminator_test_acc, stats = self.discriminator.learn(
-                epochs=3,
+                epochs=self.discriminator_epochs,
                 train_loader=train_loader,
                 test_loader=test_loader)
             pprint(stats)
@@ -196,7 +197,7 @@ class CoTrainingAlgorithm:
         batch_indices = np.arange(self.batch_size)
         clipfracs = []
 
-        for _ in range(self.epochs):
+        for _ in range(self.explorer_epochs):
             batch_order = np.random.permutation(batch_indices)
 
             for start in range(0, self.batch_size, self.minibatch_size):
@@ -276,7 +277,9 @@ class CoTrainingAlgorithm:
 
 
 if __name__ == "__main__":
-    co_trainer = CoTrainingAlgorithm(num_parralel_envs=1, num_total_timesteps=1e4, num_steps=MAX_EP_LEN,
+    co_trainer = CoTrainingAlgorithm(num_parralel_envs=1, 
+                                     num_total_timesteps=1e4, 
+                                     num_steps=MAX_EP_LEN,
                                      multiprocess=False)
     co_trainer.generate_training_data()
     co_trainer.train_discriminator()
