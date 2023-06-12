@@ -1,7 +1,7 @@
 from discriminator_dataset import ImageDataset
 import torch
 import tqdm
-from grid_world_env_torch import GridWorldEnv
+from grid_world_env import GridWorldEnv
 from data import CIFARDataLoader
 import misc_utils as mu
 import torch.optim as optim
@@ -20,7 +20,7 @@ BUFFER_SIZE = int(1e7)
 
 class CoTrainingAlgorithm:
     def __init__(self,
-                 num_parralel_envs,
+                 num_parallel_envs,
                  num_total_timesteps,
                  num_steps,
                  gae_lambda=0.95,
@@ -46,12 +46,12 @@ class CoTrainingAlgorithm:
         self.discriminator = mu.construct_discriminator(discriminator_type="learned", height=HEIGHT, width=WIDTH,
                                                         lr=0.001)
         self.action_dim = action_dim
-        self.num_parralel_envs = num_parralel_envs  # if multiprocess else 1
-        self.agent = Agent(action_dim=self.action_dim, device=self.device, num_envs=self.num_parralel_envs)
+        self.num_parallel_envs = num_parallel_envs  # if multiprocess else 1
+        self.agent = Agent(action_dim=self.action_dim, device=self.device, num_envs=self.num_parallel_envs)
         self.num_total_timesteps = num_total_timesteps
         self.num_steps = num_steps
         self.num_minibatches = num_minibatches
-        self.batch_size = int(num_steps * num_parralel_envs)
+        self.batch_size = int(num_steps * num_parallel_envs)
         self.minibatch_size = int(self.batch_size // self.num_minibatches)
         self.num_updates = int(num_total_timesteps // self.batch_size)
         self.lr = learning_rate
@@ -83,20 +83,20 @@ class CoTrainingAlgorithm:
             # go to github to stable baselines => got to stable baselines and search in their issues you might.
             # write a script to reproduce the error create a simple script that recreates the error.
             self.envs = VecPyTorch(
-                SubprocVecEnv([self.make_env(self.seed + i) for i in range(self.num_parralel_envs)], 'fork'),
+                SubprocVecEnv([self.make_env(self.seed + i) for i in range(self.num_parallel_envs)], 'fork'),
                 self.device)
         else:
-            self.envs = VecPyTorch(DummyVecEnv([self.make_env(self.seed + i) for i in range(self.num_parralel_envs)]),
+            self.envs = VecPyTorch(DummyVecEnv([self.make_env(self.seed + i) for i in range(self.num_parallel_envs)]),
                                    self.device)
         # storage params
-        self.obs = torch.zeros((self.num_steps, self.num_parralel_envs) + self.envs.observation_space.shape).to(
+        self.obs = torch.zeros((self.num_steps, self.num_parallel_envs) + self.envs.observation_space.shape).to(
             self.device)
-        self.moves = torch.zeros((self.num_steps, self.num_parralel_envs) + self.envs.action_space['move'].shape).to(
+        self.moves = torch.zeros((self.num_steps, self.num_parallel_envs) + self.envs.action_space['move'].shape).to(
             self.device)
-        self.logprobs = torch.zeros((self.num_steps, self.num_parralel_envs)).to(self.device)
-        self.rewards = torch.zeros((self.num_steps, self.num_parralel_envs)).to(self.device)
-        self.dones = torch.zeros((self.num_steps, self.num_parralel_envs)).to(self.device)
-        self.values = torch.zeros((self.num_steps, self.num_parralel_envs)).to(self.device)
+        self.logprobs = torch.zeros((self.num_steps, self.num_parallel_envs)).to(self.device)
+        self.rewards = torch.zeros((self.num_steps, self.num_parallel_envs)).to(self.device)
+        self.dones = torch.zeros((self.num_steps, self.num_parallel_envs)).to(self.device)
+        self.values = torch.zeros((self.num_steps, self.num_parallel_envs)).to(self.device)
 
     def generate_training_data(self):
         cifar_dataset = ImageDataset(buffer_size=BUFFER_SIZE, height=HEIGHT, width=WIDTH)
@@ -146,7 +146,7 @@ class CoTrainingAlgorithm:
 
     def rollout(self, next_obs, next_done):
         for step in range(self.num_steps):
-            self.global_step += self.num_parralel_envs
+            self.global_step += self.num_parallel_envs
             self.obs[step] = next_obs
             self.dones[step] = next_done
 
@@ -165,7 +165,7 @@ class CoTrainingAlgorithm:
                        'max_prob': max_prob[i],
                        'probs': probs[i],
                        'done': 1 if max_prob[i] >= self.terminal_confidence else 0
-                       } for i in range(self.num_parralel_envs)]
+                       } for i in range(self.num_parallel_envs)]
 
             next_obs, reward, dones, infos = self.envs.step(action)
             self.rewards[step] = torch.tensor(reward).to(self.device).view(-1)
@@ -248,7 +248,7 @@ class CoTrainingAlgorithm:
 
     def co_training_loop(self):
         next_obs = torch.Tensor(self.envs.reset()).to(self.device)
-        next_done = torch.zeros(self.num_parralel_envs).to(self.device)
+        next_done = torch.zeros(self.num_parallel_envs).to(self.device)
 
         for update_num in range(1, self.num_updates + 1):
             self.train_discriminator()
@@ -277,10 +277,10 @@ class CoTrainingAlgorithm:
 
 
 if __name__ == "__main__":
-    co_trainer = CoTrainingAlgorithm(num_parralel_envs=1, 
-                                     num_total_timesteps=1e4, 
+    co_trainer = CoTrainingAlgorithm(num_parallel_envs=1,
+                                     num_total_timesteps=1e4,
                                      num_steps=MAX_EP_LEN,
                                      multiprocess=False)
     co_trainer.generate_training_data()
     co_trainer.train_discriminator()
-    co_trainer.co_training_loop()           
+    co_trainer.co_training_loop()

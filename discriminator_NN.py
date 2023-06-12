@@ -1,12 +1,13 @@
-import torch 
-import torch.nn as nn 
+import torch
+import torch.nn as nn
 import torch.nn.functional as F
-import tqdm 
+import tqdm
 import torch.optim as optim
 import os
 
 """The discriminator works on a partially revealed image to understand where to go next. 
 """
+
 
 class Discriminator_NN(nn.Module):
     def __init__(self, height, width, save_dir):
@@ -18,34 +19,33 @@ class Discriminator_NN(nn.Module):
             nn.ReLU(),
             nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
-            nn.MaxPool2d(2, 2), # output: 64 x 16 x 16
+            nn.MaxPool2d(2, 2),  # output: 64 x 16 x 16
 
             nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
             nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
-            nn.MaxPool2d(2, 2), # output: 128 x 8 x 8
+            nn.MaxPool2d(2, 2),  # output: 128 x 8 x 8
 
             nn.Conv2d(128, 256, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
             nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
-            nn.MaxPool2d(2, 2), # output: 256 x 4 x 4
+            nn.MaxPool2d(2, 2),  # output: 256 x 4 x 4
 
-            nn.Flatten(), 
-            nn.Linear(256*4*4, 1024),
+            nn.Flatten(),
+            nn.Linear(256 * 4 * 4, 1024),
             nn.ReLU(),
             nn.Linear(1024, 512),
             nn.ReLU(),
             nn.Linear(512, 10))
-        
+
         self.lr = 0.001
         self.save_dir = save_dir
 
-        #change this to NVIDIA
+        # change this to NVIDIA
         self.device = torch.device("mps") if torch.backends.mps.is_available() else torch.device("cpu")
         self.model.to(self.device)
-
 
     def forward_logprob(self, x):
         # Max pooling over a (2, 2) window 
@@ -60,9 +60,9 @@ class Discriminator_NN(nn.Module):
         return probabilities
 
     def load_model(self, model_path):
-            self.model.load_state_dict(torch.load(model_path))
-            self.model.to(self.device)
-            print(f'model loaded from {model_path}')
+        self.model.load_state_dict(torch.load(model_path))
+        self.model.to(self.device)
+        print(f'model loaded from {model_path}')
 
     def train_epoch(self, epoch, data_loader, logger=None):
         log = logger.log if logger is not None else print
@@ -114,9 +114,9 @@ class Discriminator_NN(nn.Module):
         log('Test Epoch: {} | Loss: {:.6f} | Acc: {:.6f}\n'.format(epoch, epoch_loss, acc))
         self.loss = epoch_loss
         return epoch_loss, acc
-    
+
     def learn(self, epochs, train_loader, test_loader, use_best_model=True, logger=None):
-        log = logger.log if logger is not None else print 
+        log = logger.log if logger is not None else print
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.lr)
 
         stats = []
@@ -157,7 +157,8 @@ class Discriminator_NN(nn.Module):
             # return the best model according to the testing accuracy, this will pick the later one with equal acc
             best_stat = sorted(stats, key=lambda x: x['test_acc'])[-1]
             model_path, test_acc, test_loss, train_loss, train_acc = \
-                best_stat['model_path'], best_stat['test_acc'], best_stat['test_loss'], best_stat['train_loss'], best_stat['train_acc']
+                best_stat['model_path'], best_stat['test_acc'], best_stat['test_loss'], best_stat['train_loss'], \
+                best_stat['train_acc']
             self.load_model(model_path=model_path)
             log(f're-loaded model path {model_path}')
 
