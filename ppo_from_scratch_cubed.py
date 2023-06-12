@@ -3,7 +3,7 @@ import torch
 from ppo_discrete import Agent
 import tqdm
 from grid_world_env_torch import GridWorldEnv
-from data import DataLoader
+from data import CIFARDataLoader
 import misc_utils as mu
 import torch.optim as optim
 import time as time
@@ -12,10 +12,11 @@ from stable_baselines3.common.vec_env import SubprocVecEnv, DummyVecEnv
 import numpy as np
 import torch.nn as nn
 import gym
+from pprint import pprint
 
 HEIGHT, WIDTH = 32, 32
-MAX_EP_LEN = 1000
-BUFFER_SIZE = 100000
+MAX_EP_LEN = 5000
+BUFFER_SIZE = int(10e6)
 
 
 class CoTrainingAlgorithm:
@@ -36,12 +37,11 @@ class CoTrainingAlgorithm:
                  entropy_coef=0.05,
                  value_coef=0.5,
                  max_grad_norm=0.5,
-                 terminal_confidence=0.95,
-                 ):
+                 terminal_confidence=0.95):
 
         # training params
         self.device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
-        self.dataloader = DataLoader(batch_size=1)
+        self.dataloader = CIFARDataLoader(batch_size=1)
         self.discriminator_dataset = None
         self.discriminator = mu.construct_discriminator(discriminator_type="learned", height=HEIGHT, width=WIDTH,
                                                         lr=0.001)
@@ -124,10 +124,10 @@ class CoTrainingAlgorithm:
         if self.discriminator_dataset is not None:
             train_loader, test_loader = mu.construct_loaders(self.discriminator_dataset, split=0.2)
             discriminator_path, discriminator_train_loss, discriminator_train_acc, discriminator_test_loss, discriminator_test_acc, stats = self.discriminator.learn(
-                epochs=15,
+                epochs=3,
                 train_loader=train_loader,
                 test_loader=test_loader)
-            print(stats)
+            pprint(stats)
         else:
             raise Exception("Discriminator dataset not configured yet")
 
@@ -212,8 +212,7 @@ class CoTrainingAlgorithm:
                 ratio = logratio.exp()
 
                 with torch.no_grad():
-                    # calculate approx_kl http://joschu.net/blog/kl-approx.html
-                    clipfracs += [((ratio - 1.0).abs() > self.clip_coef).float().mean().item()]
+                      clipfracs += [((ratio - 1.0).abs() > self.clip_coef).float().mean().item()]
 
                 # Policy loss
                 pg_loss1 = -minibatch_advantages * ratio
@@ -277,8 +276,8 @@ class CoTrainingAlgorithm:
 
 
 if __name__ == "__main__":
-    co_trainer = CoTrainingAlgorithm(num_parralel_envs=2, num_total_timesteps=1e4, num_steps=MAX_EP_LEN,
+    co_trainer = CoTrainingAlgorithm(num_parralel_envs=1, num_total_timesteps=1e4, num_steps=MAX_EP_LEN,
                                      multiprocess=False)
     co_trainer.generate_training_data()
     co_trainer.train_discriminator()
-    co_trainer.co_training_loop()
+    co_trainer.co_training_loop()           

@@ -4,10 +4,7 @@ import torchvision.transforms as transforms
 import matplotlib.pyplot as plt
 import time 
 
-
-
-
-class DataLoader():
+class CIFARDataLoader():
     def __init__(self, batch_size):
         self.training_data = None 
         self.training_data_labels = None 
