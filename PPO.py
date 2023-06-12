@@ -16,6 +16,7 @@ from pprint import pprint
 HEIGHT, WIDTH = 32, 32
 MAX_EP_LEN = 1000
 BUFFER_SIZE = int(4e5)
+COUNTER = 10
 
 
 class CoTrainingAlgorithm:
@@ -103,9 +104,14 @@ class CoTrainingAlgorithm:
         agent = Agent(action_dim=4, device=self.device, num_envs=1)
         pbar = tqdm.tqdm(total=cifar_dataset.buffer_size)
 
-        print(type(self.dataloader.return_trainloader()))
-        train_cifar_iterator = iter(self.dataloader.return_trainloader())
-        for original_image, label in train_cifar_iterator:
+        mx = COUNTER
+        count = 0
+        for original_image, label in self.env_images:
+            if count == mx:
+                break
+
+            count += 1
+
             grid_world_env = GridWorldEnv(max_ep_len=MAX_EP_LEN,
                                           label=label[0],
                                           image=original_image[0])
@@ -123,7 +129,7 @@ class CoTrainingAlgorithm:
 
     def train_discriminator(self):
         if self.discriminator_dataset is not None:
-            train_loader, test_loader = mu.construct_loaders(self.discriminator_dataset, relevant_portion= 1/300, split= 0.2)
+            train_loader, test_loader = mu.construct_loaders(self.discriminator_dataset, split= 0.2)
             discriminator_path, discriminator_train_loss, discriminator_train_acc, discriminator_test_loss, discriminator_test_acc, \
                 stats = self.discriminator.learn(epochs=self.discriminator_epochs, train_loader=train_loader, test_loader=test_loader)
             pprint(stats)
@@ -248,7 +254,13 @@ class CoTrainingAlgorithm:
         next_obs = torch.Tensor(self.envs.reset()).to(self.device)
         next_done = torch.zeros(self.num_parallel_envs).to(self.device)
 
+        count = 0
+        mx = COUNTER
         for update_num in range(1, self.num_updates + 1):
+            if count > mx:
+                break
+
+            count += 1
             self.train_discriminator()
 
             if self.anneal_lr:
@@ -276,9 +288,19 @@ class CoTrainingAlgorithm:
 
 if __name__ == "__main__":
     co_trainer = CoTrainingAlgorithm(num_parallel_envs=1,
-                                     num_total_timesteps=int(2e5),
+                                     num_total_timesteps=int(2e4),
                                      num_steps=MAX_EP_LEN,
                                      multiprocess=False)
+    printXs = [print("X", end="\n") if i==99 else print("X", end="") for i in range(100)]
+    print("XXXXXX GENERATING TRAINING DATA XXXXXXXXX")
+    printXs = [print("X", end="\n") if i==99 else print("X", end="") for i in range(100)]
     co_trainer.generate_training_data()
+    printXs = [print("X", end="\n") if i == 99 else print("X", end="") for i in range(100)]
+    print("XXXXXX TRAINING DISCRIMINATOR XXXXXXXXX")
+    printXs = [print("X", end="\n") if i == 99 else print("X", end="") for i in range(100)]
     co_trainer.train_discriminator()
+
+    printXs = [print("X", end="\n") if i == 99 else print("X", end="") for i in range(100)]
+    print("XXXXXX INITIATING COTRAINING LOOP XXXXXXXXX")
+    printXs = [print("X", end="\n") if i == 99 else print("X", end="") for i in range(100)]
     co_trainer.co_training_loop()
