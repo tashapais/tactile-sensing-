@@ -14,8 +14,8 @@ import gym
 from pprint import pprint
 
 HEIGHT, WIDTH = 32, 32
-MAX_EP_LEN = 5000
-BUFFER_SIZE = int(1e7)
+MAX_EP_LEN = 1000
+BUFFER_SIZE = int(4e5)
 
 
 class CoTrainingAlgorithm:
@@ -103,9 +103,9 @@ class CoTrainingAlgorithm:
         agent = Agent(action_dim=4, device=self.device, num_envs=1)
         pbar = tqdm.tqdm(total=cifar_dataset.buffer_size)
 
+        print(type(self.dataloader.return_trainloader()))
         train_cifar_iterator = iter(self.dataloader.return_trainloader())
-        while len(cifar_dataset) < cifar_dataset.buffer_size:
-            original_image, label = next(train_cifar_iterator)
+        for original_image, label in train_cifar_iterator:
             grid_world_env = GridWorldEnv(max_ep_len=MAX_EP_LEN,
                                           label=label[0],
                                           image=original_image[0])
@@ -123,11 +123,9 @@ class CoTrainingAlgorithm:
 
     def train_discriminator(self):
         if self.discriminator_dataset is not None:
-            train_loader, test_loader = mu.construct_loaders(self.discriminator_dataset, relevant_portion=1/60, split=0.2)
-            discriminator_path, discriminator_train_loss, discriminator_train_acc, discriminator_test_loss, discriminator_test_acc, stats = self.discriminator.learn(
-                epochs=self.discriminator_epochs,
-                train_loader=train_loader,
-                test_loader=test_loader)
+            train_loader, test_loader = mu.construct_loaders(self.discriminator_dataset, relevant_portion= 1/300, split= 0.2)
+            discriminator_path, discriminator_train_loss, discriminator_train_acc, discriminator_test_loss, discriminator_test_acc, \
+                stats = self.discriminator.learn(epochs=self.discriminator_epochs, train_loader=train_loader, test_loader=test_loader)
             pprint(stats)
         else:
             raise Exception("Discriminator dataset not configured yet")
@@ -278,7 +276,7 @@ class CoTrainingAlgorithm:
 
 if __name__ == "__main__":
     co_trainer = CoTrainingAlgorithm(num_parallel_envs=1,
-                                     num_total_timesteps=1e4,
+                                     num_total_timesteps=int(2e5),
                                      num_steps=MAX_EP_LEN,
                                      multiprocess=False)
     co_trainer.generate_training_data()
