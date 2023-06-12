@@ -42,6 +42,9 @@ class CoTrainingAlgorithm:
 
         # training params
         self.device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
+        #Command line: nvidia-smi
+        #use weights amnd biases to log everything
+
         self.dataloader = CIFARDataLoader(batch_size=1)
         self.discriminator_dataset = None
         self.discriminator = mu.construct_discriminator(discriminator_type="learned", height=HEIGHT, width=WIDTH,
@@ -284,6 +287,10 @@ class CoTrainingAlgorithm:
                               batch_advantages=batch_advantages,
                               batch_returns=batch_returns,
                               batch_values=batch_values)
+        def save_models(self):
+            DIR = "./SAVED_MODELS"
+            torch.save(self.agent.state_dict(), DIR+"/AGENT")
+            self.discriminator.save_model(DIR,"DISCRIMINATOR")
 
 
 if __name__ == "__main__":
@@ -291,16 +298,29 @@ if __name__ == "__main__":
                                      num_total_timesteps=int(2e4),
                                      num_steps=MAX_EP_LEN,
                                      multiprocess=False)
-    printXs = [print("X", end="\n") if i==99 else print("X", end="") for i in range(100)]
+    printXs = [print("X", end="\n") if i == 99 else print("X", end="") for i in range(100)]
     print("XXXXXX GENERATING TRAINING DATA XXXXXXXXX")
-    printXs = [print("X", end="\n") if i==99 else print("X", end="") for i in range(100)]
+    printXs = [print("X", end="\n") if i == 99 else print("X", end="") for i in range(100)]
+    print("\n")
     co_trainer.generate_training_data()
+
     printXs = [print("X", end="\n") if i == 99 else print("X", end="") for i in range(100)]
     print("XXXXXX TRAINING DISCRIMINATOR XXXXXXXXX")
     printXs = [print("X", end="\n") if i == 99 else print("X", end="") for i in range(100)]
+    print("\n")
+
     co_trainer.train_discriminator()
 
     printXs = [print("X", end="\n") if i == 99 else print("X", end="") for i in range(100)]
     print("XXXXXX INITIATING COTRAINING LOOP XXXXXXXXX")
     printXs = [print("X", end="\n") if i == 99 else print("X", end="") for i in range(100)]
+    print("\n")
+
     co_trainer.co_training_loop()
+
+    printXs = [print("X", end="\n") if i == 99 else print("X", end="") for i in range(100)]
+    print("XXXXXX SAVING MODELS XXXXXXXXX")
+    printXs = [print("X", end="\n") if i == 99 else print("X", end="") for i in range(100)]
+    print("\n")
+
+    co_trainer.save_models()
