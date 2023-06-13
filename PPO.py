@@ -16,7 +16,7 @@ from pprint import pprint
 HEIGHT, WIDTH = 32, 32
 MAX_EP_LEN = 1000
 BUFFER_SIZE = int(4e5)
-COUNTER = 10
+COUNTER = 200
 
 
 class CoTrainingAlgorithm:
@@ -42,9 +42,6 @@ class CoTrainingAlgorithm:
 
         # training params
         self.device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
-        #Command line: nvidia-smi
-        #use weights amnd biases to log everything
-
         self.dataloader = CIFARDataLoader(batch_size=1)
         self.discriminator_dataset = None
         self.discriminator = mu.construct_discriminator(discriminator_type="learned", height=HEIGHT, width=WIDTH,
@@ -132,9 +129,10 @@ class CoTrainingAlgorithm:
 
     def train_discriminator(self):
         if self.discriminator_dataset is not None:
-            train_loader, test_loader = mu.construct_loaders(self.discriminator_dataset, split= 0.2)
+            train_loader, test_loader = mu.construct_loaders(self.discriminator_dataset, split=0.2)
             discriminator_path, discriminator_train_loss, discriminator_train_acc, discriminator_test_loss, discriminator_test_acc, \
-                stats = self.discriminator.learn(epochs=self.discriminator_epochs, train_loader=train_loader, test_loader=test_loader)
+                stats = self.discriminator.learn(epochs=self.discriminator_epochs, train_loader=train_loader,
+                                                 test_loader=test_loader)
             pprint(stats)
         else:
             raise Exception("Discriminator dataset not configured yet")
@@ -220,7 +218,7 @@ class CoTrainingAlgorithm:
                 ratio = logratio.exp()
 
                 with torch.no_grad():
-                      clipfracs += [((ratio - 1.0).abs() > self.clip_coef).float().mean().item()]
+                    clipfracs += [((ratio - 1.0).abs() > self.clip_coef).float().mean().item()]
 
                 # Policy loss
                 pg_loss1 = -minibatch_advantages * ratio
@@ -287,10 +285,11 @@ class CoTrainingAlgorithm:
                               batch_advantages=batch_advantages,
                               batch_returns=batch_returns,
                               batch_values=batch_values)
-        def save_models(self):
-            DIR = "./SAVED_MODELS"
-            torch.save(self.agent.state_dict(), DIR+"/AGENT")
-            self.discriminator.save_model(DIR,"DISCRIMINATOR")
+
+    def save_models(self):
+        DIR = "./SAVED_MODELS"
+        torch.save(self.agent.state_dict(), DIR + "/AGENT")
+        self.discriminator.save_model(DIR, "DISCRIMINATOR")
 
 
 if __name__ == "__main__":
