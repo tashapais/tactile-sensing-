@@ -39,7 +39,7 @@ class GridWorldEnv(gym.Env):
                                              "done": gym.spaces.Discrete(2)})
         self.observation_space = gym.spaces.Box(low=np.zeros((3, HEIGHT, WIDTH)),
                                                 high=np.full((3, HEIGHT, WIDTH), 255), dtype=np.uint8)
-        
+
     def reset(self):
         """ return initial observations"""
         # red is unexplored in visualization

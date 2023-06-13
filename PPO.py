@@ -99,6 +99,7 @@ class CoTrainingAlgorithm:
         self.rewards = torch.zeros((self.num_steps, self.num_parallel_envs)).to(self.device)
         self.dones = torch.zeros((self.num_steps, self.num_parallel_envs)).to(self.device)
         self.values = torch.zeros((self.num_steps, self.num_parallel_envs)).to(self.device)
+        self.classes = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
 
     def generate_training_data(self):
         cifar_dataset = ImageDataset(buffer_size=BUFFER_SIZE, height=HEIGHT, width=WIDTH)
@@ -165,6 +166,8 @@ class CoTrainingAlgorithm:
             self.moves[step] = move
 
             prediction, max_prob, probs = self.discriminator.predict(self.obs[step].cpu().numpy())
+
+            self.render_visualization(img=self.obs[step].cpu().numpy(), classification=prediction)
 
             action = [{'move': move[i].item(),
                        'prediction': prediction[i],
