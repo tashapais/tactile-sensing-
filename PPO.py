@@ -12,11 +12,12 @@ import numpy as np
 import torch.nn as nn
 import gym
 from pprint import pprint
+import matplotlib.pyplot as plt
 
 HEIGHT, WIDTH = 32, 32
 MAX_EP_LEN = 1000
 BUFFER_SIZE = int(4e5)
-COUNTER = 200
+COUNTER = 20
 
 
 class CoTrainingAlgorithm:
@@ -290,6 +291,12 @@ class CoTrainingAlgorithm:
         DIR = "./SAVED_MODELS"
         torch.save(self.agent.state_dict(), DIR + "/AGENT")
         self.discriminator.save_model(DIR, "DISCRIMINATOR")
+
+    def render_visualization(self, img, classification):
+        plt.imshow(img)
+        plt.title('Classified as', self.classes[classification].upper())
+        plt.show()
+        plt.pause(0.0001)
 
 
 if __name__ == "__main__":
