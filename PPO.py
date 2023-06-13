@@ -15,7 +15,7 @@ from pprint import pprint
 import matplotlib.pyplot as plt
 
 HEIGHT, WIDTH = 32, 32
-MAX_EP_LEN = 100
+MAX_EP_LEN = 10000
 BUFFER_SIZE = int(4e5)
 COUNTER = 1
 

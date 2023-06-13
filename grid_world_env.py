@@ -47,10 +47,8 @@ class GridWorldEnv(gym.Env):
         self.img_gt = self.image
         initial_loc = torch.randint(low=0, high=32, size=(2,))
         self.current_step = 0
-        self.renderer = plt.imshow (self.img_visualization.permute(1,2,0).numpy())
         pixel_value = self.img_gt[:,initial_loc[0],initial_loc[1]]
-        self.img_visualization[:,initial_loc[0],initial_loc[1]] = torch.tensor([0, 0, 0]) if torch.equal(pixel_value, torch.tensor([0, 0, 0])) else pixel_value
-
+        self.img_visualization[:,initial_loc[0],initial_loc[1]] = pixel_value
         self.current_loc = initial_loc
         self.current_step += 1
         return self.img_visualization
@@ -60,7 +58,7 @@ class GridWorldEnv(gym.Env):
 
     def step(self, action):
         if type(action) == torch.Tensor:
-            done = self.current_step ==  self.max_ep_len
+            done = self.current_step == self.max_ep_len
             new_loc = self.compute_next_loc(action)
             pixel_value = self.img_gt[:,new_loc[0], new_loc[1]]
             discover = not torch.equal(pixel_value, self.img_visualization[:,new_loc[0],new_loc[1]])
