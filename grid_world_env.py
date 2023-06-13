@@ -112,3 +112,11 @@ class GridWorldEnv(gym.Env):
         else:
             raise NotImplementedError('no such action!')
         return (x, y)
+
+    def render(self, mode='human'):
+        if mode == 'rgb_array':
+            return self.img_visualization  # return RGB frame suitable for video
+        elif mode == 'human':
+            # pop up a window for visualization
+            self.renderer.set_data(self.img_visualization)
+            plt.pause(0.00001)
