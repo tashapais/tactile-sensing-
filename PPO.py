@@ -15,9 +15,9 @@ from pprint import pprint
 import matplotlib.pyplot as plt
 
 HEIGHT, WIDTH = 32, 32
-MAX_EP_LEN = 1000
+MAX_EP_LEN = 100
 BUFFER_SIZE = int(4e5)
-COUNTER = 20
+COUNTER = 1
 
 
 class CoTrainingAlgorithm:
@@ -73,6 +73,7 @@ class CoTrainingAlgorithm:
         self.terminal_confidence = terminal_confidence
 
         # env parameters
+        self.classes = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
         self.height = HEIGHT
         self.width = WIDTH
         self.single_observation_space_shape = (3, HEIGHT, WIDTH)
@@ -81,7 +82,9 @@ class CoTrainingAlgorithm:
         self.env_images = iter(self.dataloader.return_trainloader())
         if self.multiprocess:
             # could this have anything to do with the device at all????
-            # few things to try: 1. us the sub proc vec env with one if self.num_parralel_envs = 1, simple script to test out a simple env, and test out subprocvecenv class
+            # few things to try: 1. us the sub proc vec env with one if self.num_parralel_envs = 1,
+            # simple script to test out a simple env, and test out subprocvecenv class
+            # simple script to test out a simple env, and test out subprocvecenv class
             # go to github to stable baselines => got to stable baselines and search in their issues you might.
             # write a script to reproduce the error create a simple script that recreates the error.
             self.envs = VecPyTorch(
@@ -99,7 +102,6 @@ class CoTrainingAlgorithm:
         self.rewards = torch.zeros((self.num_steps, self.num_parallel_envs)).to(self.device)
         self.dones = torch.zeros((self.num_steps, self.num_parallel_envs)).to(self.device)
         self.values = torch.zeros((self.num_steps, self.num_parallel_envs)).to(self.device)
-        self.classes = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
 
     def generate_training_data(self):
         cifar_dataset = ImageDataset(buffer_size=BUFFER_SIZE, height=HEIGHT, width=WIDTH)
@@ -109,6 +111,7 @@ class CoTrainingAlgorithm:
         mx = COUNTER
         count = 0
         for original_image, label in self.env_images:
+            self.render_visualization(img=original_image[0].numpy(), classification=label.numpy())
             if count == mx:
                 break
 
@@ -123,6 +126,10 @@ class CoTrainingAlgorithm:
             while not done and not len(cifar_dataset) == cifar_dataset.buffer_size:
                 action, log_prob, entropy = agent.get_move(torch.unsqueeze(img, 0))
                 done, img = grid_world_env.step(action)
+                print("image in the generating stage:")
+                print(img.shape)
+                print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
+                self.render_visualization(img=img.numpy(), classification=None)
                 img = img.to(self.device)
                 cifar_dataset.add_data(torch.unsqueeze(img, dim=0), label)
                 pbar.update(1)
@@ -142,6 +149,7 @@ class CoTrainingAlgorithm:
     def make_env(self, seed):
         def thunk():
             img, label = next(self.env_images)
+            self.render_visualization(img=img[0].numpy(), classification=label.numpy())
             env = GridWorldEnv(image=img[0], label=label[0], max_ep_len=self.num_steps)
             env = gym.wrappers.RecordEpisodeStatistics(env)
             env.seed(seed)
@@ -167,7 +175,7 @@ class CoTrainingAlgorithm:
 
             prediction, max_prob, probs = self.discriminator.predict(self.obs[step].cpu().numpy())
 
-            self.render_visualization(img=self.obs[step].cpu().numpy(), classification=prediction)
+            self.render_visualization2(img=self.obs[step].cpu().numpy(), classification=prediction)
 
             action = [{'move': move[i].item(),
                        'prediction': prediction[i],
@@ -262,7 +270,7 @@ class CoTrainingAlgorithm:
         count = 0
         mx = COUNTER
         for update_num in range(1, self.num_updates + 1):
-            if count > mx:
+            if count == mx:
                 break
 
             count += 1
@@ -296,11 +304,28 @@ class CoTrainingAlgorithm:
         self.discriminator.save_model(DIR, "DISCRIMINATOR")
 
     def render_visualization(self, img, classification):
-        plt.imshow(img)
-        plt.title('Classified as', self.classes[classification].upper())
+        viz = img #[0].copy()
+        title = ""
+        if classification:
+            typ = classification[0]
+            title = 'Classified as '+self.classes[typ].upper()
+        viz = np.transpose(viz, (1, 2, 0))
+        plt.imshow(viz)
+        plt.title(title)
         plt.show()
         plt.pause(0.0001)
 
+    def render_visualization2(self, img, classification):
+        viz = img[0].copy()
+        title = ""
+        if classification:
+            typ = classification[0]
+            title = 'Classified as '+self.classes[typ].upper()
+        viz = np.transpose(viz, (1, 2, 0))
+        plt.imshow(viz)
+        plt.title(title)
+        plt.show()
+        plt.pause(0.0001)
 
 if __name__ == "__main__":
     co_trainer = CoTrainingAlgorithm(num_parallel_envs=1,
