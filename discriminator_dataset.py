@@ -68,8 +68,8 @@ class ImageDataset(Dataset):
         if new_nums.ndim == 1:
             new_nums = new_nums[..., None]
 
-        assert new_imgs.dtype == np.uint8
-        assert new_nums.dtype == np.int64
+        #assert new_imgs.dtype == np.uint8
+        #assert new_nums.dtype == np.int64
 
         n = new_imgs.shape[0]
         if self.pointer + n < self.buffer_size:

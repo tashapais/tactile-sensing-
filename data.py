@@ -18,8 +18,7 @@ class CIFARDataLoader():
                         'truck')
         self.batch_size = batch_size
         self.transform = transforms.Compose(
-    [transforms.ToTensor(),
-     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+    [transforms.ToTensor()])
                         
 
     def return_trainloader(self):

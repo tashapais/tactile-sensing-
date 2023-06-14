@@ -12,7 +12,7 @@ action_map = {
 }
 HEIGHT, WIDTH = 32, 32
 NUM_EPISODES = 1000
-MAX_EP_LEN = 5000
+MAX_EP_LEN = 10
 
 class GridWorldEnv(gym.Env):
     metadata = {'render.modes': ['human', 'rgb_array']}
@@ -38,19 +38,22 @@ class GridWorldEnv(gym.Env):
                                              "max_prob": gym.spaces.Box(low=0, high=1, shape=(1,)),
                                              "done": gym.spaces.Discrete(2)})
         self.observation_space = gym.spaces.Box(low=np.zeros((3, HEIGHT, WIDTH)),
-                                                high=np.full((3, HEIGHT, WIDTH), 255), dtype=np.uint8)
+                                                high=np.full((3, HEIGHT, WIDTH), 1.0), dtype=np.float32)
 
     def reset(self):
         """ return initial observations"""
         # red is unexplored in visualization
-        self.img_visualization = torch.full((3, HEIGHT, WIDTH), 255, dtype=torch.uint8)
+        self.img_visualization = torch.full((3, HEIGHT, WIDTH), 0.0, dtype=torch.float32)
+
         self.img_gt = self.image
         initial_loc = torch.randint(low=0, high=32, size=(2,))
         self.current_step = 0
-        pixel_value = self.img_gt[:,initial_loc[0],initial_loc[1]]
-        self.img_visualization[:,initial_loc[0],initial_loc[1]] = pixel_value
+        self.img_visualization[:,initial_loc[0],initial_loc[1]] = self.img_gt[:,initial_loc[0],initial_loc[1]]
         self.current_loc = initial_loc
         self.current_step += 1
+        print("Pixel value=", self.img_visualization[:,initial_loc[0],initial_loc[1]])
+        print("Return tensor value=", self.img_visualization)
+        x = self.img_visualization.numpy()
         return self.img_visualization
     
     def done(self):
@@ -63,6 +66,9 @@ class GridWorldEnv(gym.Env):
             pixel_value = self.img_gt[:,new_loc[0], new_loc[1]]
             discover = not torch.equal(pixel_value, self.img_visualization[:,new_loc[0],new_loc[1]])
             self.img_visualization[:,new_loc[0], new_loc[1]] =  pixel_value
+            print("Pixel value=", self.img_visualization[:,new_loc[0],new_loc[1]])
+            print("Return tensor value=", self.img_visualization)
+            ex = self.img_visualization.numpy()
             ob = self.img_visualization
             self.current_step += 1
             self.current_loc = new_loc
@@ -83,6 +89,8 @@ class GridWorldEnv(gym.Env):
             reward = 1 if prediction == self.label else 0
 
             done = self.current_step == self.max_ep_len
+
+            print("Pixel value=", self.img_visualization[:,new_loc[0],new_loc[1]])
 
             info = {'discover': discover,
                     'img': deepcopy(ob),

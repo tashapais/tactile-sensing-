@@ -15,7 +15,7 @@ from pprint import pprint
 import matplotlib.pyplot as plt
 
 HEIGHT, WIDTH = 32, 32
-MAX_EP_LEN = 10000
+MAX_EP_LEN = 10
 BUFFER_SIZE = int(4e5)
 COUNTER = 1
 
@@ -111,7 +111,7 @@ class CoTrainingAlgorithm:
         mx = COUNTER
         count = 0
         for original_image, label in self.env_images:
-            self.render_visualization(img=original_image[0].numpy(), classification=label.numpy())
+            self.render_visualization(img=original_image[0], classification=label.numpy())
             if count == mx:
                 break
 
@@ -126,10 +126,7 @@ class CoTrainingAlgorithm:
             while not done and not len(cifar_dataset) == cifar_dataset.buffer_size:
                 action, log_prob, entropy = agent.get_move(torch.unsqueeze(img, 0))
                 done, img = grid_world_env.step(action)
-                print("image in the generating stage:")
-                print(img.shape)
-                print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
-                self.render_visualization(img=img.numpy(), classification=None)
+                self.render_visualization(img=img, classification=None)
                 img = img.to(self.device)
                 cifar_dataset.add_data(torch.unsqueeze(img, dim=0), label)
                 pbar.update(1)
@@ -149,7 +146,7 @@ class CoTrainingAlgorithm:
     def make_env(self, seed):
         def thunk():
             img, label = next(self.env_images)
-            self.render_visualization(img=img[0].numpy(), classification=label.numpy())
+            # self.render_visualization(img=img[0], classification=label.numpy())
             env = GridWorldEnv(image=img[0], label=label[0], max_ep_len=self.num_steps)
             env = gym.wrappers.RecordEpisodeStatistics(env)
             env.seed(seed)
@@ -175,7 +172,7 @@ class CoTrainingAlgorithm:
 
             prediction, max_prob, probs = self.discriminator.predict(self.obs[step].cpu().numpy())
 
-            self.render_visualization2(img=self.obs[step].cpu().numpy(), classification=prediction)
+            self.render_visualization(img=self.obs[step].cpu()[0], classification=prediction)
 
             action = [{'move': move[i].item(),
                        'prediction': prediction[i],
@@ -185,7 +182,7 @@ class CoTrainingAlgorithm:
                        } for i in range(self.num_parallel_envs)]
 
             next_obs, reward, dones, infos = self.envs.step(action)
-            self.rewards[step] = torch.tensor(reward).to(self.device).view(-1)
+            self.rewards[step] = reward.clone().detach().requires_grad_(True).to(self.device).view(-1)
             next_obs, next_done = torch.Tensor(next_obs).to(self.device), torch.Tensor(dones).to(self.device)
 
             self.add_new_data(infos, dones)
@@ -304,57 +301,28 @@ class CoTrainingAlgorithm:
         self.discriminator.save_model(DIR, "DISCRIMINATOR")
 
     def render_visualization(self, img, classification):
-        viz = img #[0].copy()
+        viz = img
         title = ""
         if classification:
             typ = classification[0]
-            title = 'Classified as '+self.classes[typ].upper()
-        viz = np.transpose(viz, (1, 2, 0))
+            title = 'Classified as ' + self.classes[typ].upper()
+        viz = torch.permute(viz, (1, 2, 0))
         plt.imshow(viz)
         plt.title(title)
         plt.show()
-        plt.pause(0.0001)
 
-    def render_visualization2(self, img, classification):
-        viz = img[0].copy()
-        title = ""
-        if classification:
-            typ = classification[0]
-            title = 'Classified as '+self.classes[typ].upper()
-        viz = np.transpose(viz, (1, 2, 0))
-        plt.imshow(viz)
-        plt.title(title)
-        plt.show()
-        plt.pause(0.0001)
 
 if __name__ == "__main__":
     co_trainer = CoTrainingAlgorithm(num_parallel_envs=1,
                                      num_total_timesteps=int(2e4),
                                      num_steps=MAX_EP_LEN,
                                      multiprocess=False)
-    printXs = [print("X", end="\n") if i == 99 else print("X", end="") for i in range(100)]
     print("XXXXXX GENERATING TRAINING DATA XXXXXXXXX")
-    printXs = [print("X", end="\n") if i == 99 else print("X", end="") for i in range(100)]
-    print("\n")
     co_trainer.generate_training_data()
-
-    printXs = [print("X", end="\n") if i == 99 else print("X", end="") for i in range(100)]
     print("XXXXXX TRAINING DISCRIMINATOR XXXXXXXXX")
-    printXs = [print("X", end="\n") if i == 99 else print("X", end="") for i in range(100)]
-    print("\n")
-
     co_trainer.train_discriminator()
-
-    printXs = [print("X", end="\n") if i == 99 else print("X", end="") for i in range(100)]
     print("XXXXXX INITIATING COTRAINING LOOP XXXXXXXXX")
-    printXs = [print("X", end="\n") if i == 99 else print("X", end="") for i in range(100)]
-    print("\n")
-
     co_trainer.co_training_loop()
-
-    printXs = [print("X", end="\n") if i == 99 else print("X", end="") for i in range(100)]
     print("XXXXXX SAVING MODELS XXXXXXXXX")
-    printXs = [print("X", end="\n") if i == 99 else print("X", end="") for i in range(100)]
-    print("\n")
 
     co_trainer.save_models()
