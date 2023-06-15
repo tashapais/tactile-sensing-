@@ -12,12 +12,14 @@ import numpy as np
 import torch.nn as nn
 import gym
 from pprint import pprint
+from explorer_NN import Explorer_NN
 import matplotlib.pyplot as plt
 
 HEIGHT, WIDTH = 32, 32
-MAX_EP_LEN = 10
-BUFFER_SIZE = int(4e5)
-COUNTER = 1
+MAX_EP_LEN = 1000
+BUFFER_SIZE = int(3e6)
+NO_IMAGES_ORIGINAL_TRAINING_DATA = 1
+NO_IMAGES_PPO = 1
 
 
 class CoTrainingAlgorithm:
@@ -50,6 +52,7 @@ class CoTrainingAlgorithm:
         self.action_dim = action_dim
         self.num_parallel_envs = num_parallel_envs  # if multiprocess else 1
         self.agent = Agent(action_dim=self.action_dim, device=self.device, num_envs=self.num_parallel_envs)
+        self.explorer = Explorer_NN(action_dim=self.action_dim, device=self.device)
         self.num_total_timesteps = num_total_timesteps
         self.num_steps = num_steps
         self.num_minibatches = num_minibatches
@@ -57,7 +60,7 @@ class CoTrainingAlgorithm:
         self.minibatch_size = int(self.batch_size // self.num_minibatches)
         self.num_updates = int(num_total_timesteps // self.batch_size)
         self.lr = learning_rate
-        self.optimizer = optim.Adam(self.agent.parameters(), lr=self.lr, eps=1e-5)
+        self.optimizer = optim.Adam(self.explorer.agent.parameters(), lr=self.lr, eps=1e-5)
         self.global_step = 0
         self.anneal_lr = anneal_lr
         self.multiprocess = multiprocess
@@ -108,11 +111,10 @@ class CoTrainingAlgorithm:
         agent = Agent(action_dim=4, device=self.device, num_envs=1)
         pbar = tqdm.tqdm(total=cifar_dataset.buffer_size)
 
-        mx = COUNTER
         count = 0
         for original_image, label in self.env_images:
             self.render_visualization(img=original_image[0], classification=label.numpy())
-            if count == mx:
+            if count == NO_IMAGES_ORIGINAL_TRAINING_DATA:
                 break
 
             count += 1
@@ -163,8 +165,8 @@ class CoTrainingAlgorithm:
             self.dones[step] = next_done
 
             with torch.no_grad():
-                move, logprob, _ = self.agent.get_move(next_obs)
-                value = self.agent.get_value(next_obs)
+                move, logprob, _ = self.explorer.get_move(next_obs)
+                value = self.explorer.agent.get_value(next_obs)
 
             self.values[step] = value.flatten()
             self.logprobs[step] = logprob
@@ -191,7 +193,7 @@ class CoTrainingAlgorithm:
 
     def advantage_return_computation(self, next_obs, next_done):
         with torch.no_grad():
-            next_value = self.agent.get_value(next_obs).reshape(1, -1)
+            next_value = self.explorer.agent.get_value(next_obs).reshape(1, -1)
             advantages = torch.zeros_like(self.rewards).to(self.device)
             lastgaelam = 0
             for t in reversed(range(self.num_steps)):
@@ -219,8 +221,8 @@ class CoTrainingAlgorithm:
                 minibatch_indices = batch_order[start:end]
                 minibatch_advantages = batch_advantages[minibatch_indices]
 
-                _, newlogprob, entropy = self.agent.get_move(batch_obs[minibatch_indices],
-                                                             batch_moves.long()[minibatch_indices])
+                _, newlogprob, entropy = self.explorer.agent.get_move(batch_obs[minibatch_indices],
+                                                                      batch_moves.long()[minibatch_indices])
                 entropy_loss = entropy.mean()
 
                 logratio = newlogprob - batch_logprobs[minibatch_indices]
@@ -235,7 +237,7 @@ class CoTrainingAlgorithm:
                 pg_loss = torch.max(pg_loss1, pg_loss2).mean()
 
                 # Value loss
-                new_values = self.agent.get_value(batch_obs[minibatch_indices]).view(-1)
+                new_values = self.explorer.agent.get_value(batch_obs[minibatch_indices]).view(-1)
                 if self.clip_vloss:
                     v_loss_unclipped = ((new_values - batch_returns[minibatch_indices]) ** 2)
                     v_clipped = batch_values[minibatch_indices] + torch.clamp(
@@ -251,7 +253,7 @@ class CoTrainingAlgorithm:
 
                 self.optimizer.zero_grad()
                 loss.backward()
-                nn.utils.clip_grad_norm_(self.agent.parameters(), self.max_grad_norm)
+                nn.utils.clip_grad_norm_(self.explorer.agent.parameters(), self.max_grad_norm)
                 self.optimizer.step()
 
     def add_new_data(self, infos, dones):
@@ -265,9 +267,8 @@ class CoTrainingAlgorithm:
         next_done = torch.zeros(self.num_parallel_envs).to(self.device)
 
         count = 0
-        mx = COUNTER
         for update_num in range(1, self.num_updates + 1):
-            if count == mx:
+            if count == NO_IMAGES_PPO:
                 break
 
             count += 1
@@ -297,7 +298,7 @@ class CoTrainingAlgorithm:
 
     def save_models(self):
         DIR = "./SAVED_MODELS"
-        torch.save(self.agent.state_dict(), DIR + "/AGENT")
+        torch.save(self.explorer.agent.state_dict(), DIR + "/AGENT")
         self.discriminator.save_model(DIR, "DISCRIMINATOR")
 
     def render_visualization(self, img, classification):

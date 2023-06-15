@@ -325,7 +325,7 @@ def wrap_pytorch(env):
 
 #the explorer agent
 class Agent(nn.Module):
-    def __init__(self, action_dim, device, num_envs, frames=1, img_size=32):
+    def __init__(self, action_dim, device, frames=1, img_size=32):
         super(Agent, self).__init__()
         self.device = device
         self.preprocess = Preprocess()
@@ -380,7 +380,7 @@ class Agent(nn.Module):
             probs = Categorical(logits=logits)
             action = probs.sample()
             action = action.cpu().numpy()
-            return action
+            return action, probs, probs.entropy
 
     def get_move_probabilities(self, x):
         self.eval()

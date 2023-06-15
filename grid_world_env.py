@@ -3,6 +3,9 @@ import torch
 import matplotlib.pyplot as plt
 from copy import deepcopy
 import numpy as np
+import misc_utils as mu
+
+
 
 action_map = {
     0: 'up',
@@ -12,7 +15,7 @@ action_map = {
 }
 HEIGHT, WIDTH = 32, 32
 NUM_EPISODES = 1000
-MAX_EP_LEN = 10
+MAX_EP_LEN = 1000
 
 class GridWorldEnv(gym.Env):
     metadata = {'render.modes': ['human', 'rgb_array']}
@@ -25,7 +28,7 @@ class GridWorldEnv(gym.Env):
         self.label, self.image = label, image
         self.img_gt = None
         self.img_index = None
-        self.img_visualization = None
+        self.revealed_image = None
         self.renderer = None
         self.discover = True
         self.explorer = None 
@@ -43,18 +46,18 @@ class GridWorldEnv(gym.Env):
     def reset(self):
         """ return initial observations"""
         # red is unexplored in visualization
-        self.img_visualization = torch.full((3, HEIGHT, WIDTH), 0.0, dtype=torch.float32)
+        self.revealed_image = torch.full((3, HEIGHT, WIDTH), mu.unexplored, dtype=torch.float32)
 
         self.img_gt = self.image
         initial_loc = torch.randint(low=0, high=32, size=(2,))
         self.current_step = 0
-        self.img_visualization[:,initial_loc[0],initial_loc[1]] = self.img_gt[:,initial_loc[0],initial_loc[1]]
+        self.revealed_image[:,initial_loc[0],initial_loc[1]] = torch.tensor([mu.current_square]*3)
         self.current_loc = initial_loc
         self.current_step += 1
-        print("Pixel value=", self.img_visualization[:,initial_loc[0],initial_loc[1]])
-        print("Return tensor value=", self.img_visualization)
-        x = self.img_visualization.numpy()
-        return self.img_visualization
+        print("Pixel value=", self.revealed_image[:,initial_loc[0],initial_loc[1]])
+        print("Return tensor value=", self.revealed_image)
+        x = self.revealed_image.numpy()
+        return self.revealed_image
     
     def done(self):
         return self.current_step>=self.max_ep_len
@@ -62,14 +65,13 @@ class GridWorldEnv(gym.Env):
     def step(self, action):
         if type(action) == torch.Tensor:
             done = self.current_step == self.max_ep_len
+            self.revealed_image[:, self.current_loc[0], self.current_loc[1]] = self.img_gt[:, current_loc[0], current_loc[1]]
             new_loc = self.compute_next_loc(action)
+
             pixel_value = self.img_gt[:,new_loc[0], new_loc[1]]
-            discover = not torch.equal(pixel_value, self.img_visualization[:,new_loc[0],new_loc[1]])
-            self.img_visualization[:,new_loc[0], new_loc[1]] =  pixel_value
-            print("Pixel value=", self.img_visualization[:,new_loc[0],new_loc[1]])
-            print("Return tensor value=", self.img_visualization)
-            ex = self.img_visualization.numpy()
-            ob = self.img_visualization
+            discover = not torch.equal(pixel_value, self.revealed_image[:,new_loc[0],new_loc[1]])
+            self.revealed_image[:, new_loc[0], new_loc[1]] = torch.tensor([mu.current_square]*3)
+            ob = self.revealed_image
             self.current_step += 1
             self.current_loc = new_loc
             return done, ob
@@ -81,16 +83,16 @@ class GridWorldEnv(gym.Env):
 
             new_loc = self.compute_next_loc(move)
             pixel_value = self.img_gt[:,new_loc[0],new_loc[1]]
-            discover = not torch.equal(pixel_value, self.img_visualization[:,new_loc[0],new_loc[1]])
-            self.img_visualization[:,new_loc[0],new_loc[1]] =  pixel_value
-            ob = self.img_visualization
+            discover = not torch.equal(pixel_value, self.revealed_image[:,new_loc[0],new_loc[1]])
+            self.revealed_image[:,new_loc[0],new_loc[1]] =  pixel_value
+            ob = self.revealed_image
             self.current_step += 1
             self.current_loc = new_loc
             reward = 1 if prediction == self.label else 0
 
             done = self.current_step == self.max_ep_len
 
-            print("Pixel value=", self.img_visualization[:,new_loc[0],new_loc[1]])
+            print("Pixel value=", self.revealed_image[:,new_loc[0],new_loc[1]])
 
             info = {'discover': discover,
                     'img': deepcopy(ob),
@@ -121,8 +123,8 @@ class GridWorldEnv(gym.Env):
 
     def render(self, mode='human'):
         if mode == 'rgb_array':
-            return self.img_visualization  # return RGB frame suitable for video
+            return self.revealed_image  # return RGB frame suitable for video
         elif mode == 'human':
             # pop up a window for visualization
-            self.renderer.set_data(self.img_visualization)
+            self.renderer.set_data(self.revealed_image)
             plt.pause(0.00001)

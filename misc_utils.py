@@ -28,12 +28,10 @@ right = 1
 down = 2
 left = 3
 
-black = 0
-white = 255
-unexplored = 255
-current_black = 63
-current_white = 191
-
+black = 0.0
+white = 1.0
+unexplored = -0.1
+current_square = -0.5
 
 def show_img(img, title=None, ticks_off=False):
     """
@@ -170,7 +168,7 @@ def convert_second(seconds):
     return "%02dd%02dh%02dm%02ds" % (day, hour, minutes, seconds)
 
 
-def compute_next_loc(current_loc, move, height=28, width=28):
+def compute_next_loc(current_loc, move, height=32, width=32):
     """ return a tuple """
     # clockwise move
     if move == up:
@@ -502,8 +500,12 @@ def check_class(partial_grid, gt_grids):
 
 
 def get_current_loc(ob):
-    """ ob is (1, height, width). (height, width) will not work """
-    x_idx, y_idx = np.where(np.logical_or(ob[0] == current_black, ob[0] == current_white))
+    """ ob is (3, height, width). (height, width) will not work """
+    if type(ob) == torch.Tensor:
+        ob = ob.numpy()
+    x_idx, y_idx = np.where(np.logical_and(ob[0] == current_square,
+                                           ob[1] == current_square,
+                                           ob[2] == current_square))
     print(x_idx, y_idx)
     assert len(x_idx) == 1 and len(y_idx) == 1
     x_idx, y_idx = x_idx[0], y_idx[0]
