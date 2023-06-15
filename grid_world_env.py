@@ -53,8 +53,6 @@ class GridWorldEnv(gym.Env):
         self.revealed_image[:, initial_loc[0], initial_loc[1]] = torch.tensor([mu.current_square] * 3)
         self.current_loc = initial_loc
         self.current_step += 1
-        print("Pixel value=", self.revealed_image[:, initial_loc[0], initial_loc[1]])
-        print("Return tensor value=", self.revealed_image)
         x = self.revealed_image.numpy()
         return self.revealed_image
 
@@ -62,8 +60,8 @@ class GridWorldEnv(gym.Env):
         return self.current_step >= self.max_ep_len
 
     #func_call is 0 for the first type of call and 1 for the second type of call
-    def step(self, action, func_call):
-        if func_call == 0:
+    def step(self, action):
+        if type(action) != dict:
             done = self.current_step == self.max_ep_len
             self.revealed_image[:, self.current_loc[0], self.current_loc[1]] = \
                 self.img_gt[:, self.current_loc[0], self.current_loc[1]]
@@ -82,10 +80,14 @@ class GridWorldEnv(gym.Env):
             prediction = action['prediction']
             done = action['done']
 
+            self.revealed_image[:, self.current_loc[0], self.current_loc[1]] = \
+                self.img_gt[:, self.current_loc[0], self.current_loc[1]]
+
             new_loc = self.compute_next_loc(move)
             pixel_value = self.img_gt[:, new_loc[0], new_loc[1]]
             discover = not torch.equal(pixel_value, self.revealed_image[:, new_loc[0], new_loc[1]])
-            self.revealed_image[:, new_loc[0], new_loc[1]] = pixel_value
+            self.revealed_image[:, new_loc[0], new_loc[1]] = torch.tensor([mu.current_square] * 3)
+
             ob = self.revealed_image
             self.current_step += 1
             self.current_loc = new_loc

@@ -126,11 +126,13 @@ class CoTrainingAlgorithm:
             done = False
             while not done and not len(cifar_dataset) == cifar_dataset.buffer_size:
                 action, log_prob, entropy = agent.get_move(torch.unsqueeze(img, 0))
-                done, img = grid_world_env.step(action, func_call=0)
-                self.render_visualization(img=img, classification=None)
+                done, img = grid_world_env.step(action)
+                if done:
+                    self.render_visualization(img=img, classification=None)
                 img = img.to(self.device)
                 cifar_dataset.add_data(torch.unsqueeze(img, dim=0), label)
                 pbar.update(1)
+
         pbar.close()
         self.discriminator_dataset = cifar_dataset
 
@@ -173,21 +175,23 @@ class CoTrainingAlgorithm:
 
             prediction, max_prob, probs = self.discriminator.predict(self.obs[step].cpu().numpy())
 
-            self.render_visualization(img=self.obs[step].cpu()[0], classification=prediction)
+            move = [move] #Bandage solution
 
-            action = [{'move': move[i].item(),
+            action = [{'move': move[i], #.item(), bandage solution 2
                        'prediction': prediction[i],
                        'max_prob': max_prob[i],
                        'probs': probs[i],
                        'done': 1 if max_prob[i] >= self.terminal_confidence else 0
                        } for i in range(self.num_parallel_envs)]
 
-            next_obs, reward, dones, infos = self.envs.step(action, func_call=1)
+            next_obs, reward, dones, infos = self.envs.step(action)
             self.rewards[step] = reward.clone().detach().requires_grad_(True).to(self.device).view(-1)
             next_obs, next_done = torch.Tensor(next_obs).to(self.device), torch.Tensor(dones).to(self.device)
 
             self.add_new_data(infos, dones)
 
+        print("Shape opf observations", self.obs.shape)
+        self.render_visualization(img=self.obs[self.num_steps-1, 0, ...].cpu(), classification="")
         return next_obs, next_done
 
     def advantage_return_computation(self, next_obs, next_done):

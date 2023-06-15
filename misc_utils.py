@@ -501,6 +501,8 @@ def check_class(partial_grid, gt_grids):
 
 def get_current_loc(ob):
     """ ob is (3, height, width). (height, width) will not work """
+
+    print("Shape of ob", ob.shape)
     if type(ob) == torch.Tensor:
         ob = ob.cpu().numpy()
     x_idx, y_idx = np.where(np.logical_and(ob[0] == current_square,
