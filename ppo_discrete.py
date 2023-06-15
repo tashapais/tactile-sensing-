@@ -379,7 +379,6 @@ class Agent(nn.Module):
             logits = self.actor(self.forward(x))
             probs = Categorical(logits=logits)
             action = probs.sample()
-            action = action.cpu().numpy()
             return action, probs, probs.entropy
 
     def get_move_probabilities(self, x):

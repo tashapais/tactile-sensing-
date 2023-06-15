@@ -1,11 +1,9 @@
-import gym 
+import gym
 import torch
 import matplotlib.pyplot as plt
 from copy import deepcopy
 import numpy as np
 import misc_utils as mu
-
-
 
 action_map = {
     0: 'up',
@@ -16,6 +14,7 @@ action_map = {
 HEIGHT, WIDTH = 32, 32
 NUM_EPISODES = 1000
 MAX_EP_LEN = 1000
+
 
 class GridWorldEnv(gym.Env):
     metadata = {'render.modes': ['human', 'rgb_array']}
@@ -31,8 +30,8 @@ class GridWorldEnv(gym.Env):
         self.revealed_image = None
         self.renderer = None
         self.discover = True
-        self.explorer = None 
-        self.discriminator = None 
+        self.explorer = None
+        self.discriminator = None
         self.move_dim = 4
         self.num_classes = 10
         self.action_space = gym.spaces.Dict({"move": gym.spaces.Discrete(self.move_dim),
@@ -51,58 +50,56 @@ class GridWorldEnv(gym.Env):
         self.img_gt = self.image
         initial_loc = torch.randint(low=0, high=32, size=(2,))
         self.current_step = 0
-        self.revealed_image[:,initial_loc[0],initial_loc[1]] = torch.tensor([mu.current_square]*3)
+        self.revealed_image[:, initial_loc[0], initial_loc[1]] = torch.tensor([mu.current_square] * 3)
         self.current_loc = initial_loc
         self.current_step += 1
-        print("Pixel value=", self.revealed_image[:,initial_loc[0],initial_loc[1]])
+        print("Pixel value=", self.revealed_image[:, initial_loc[0], initial_loc[1]])
         print("Return tensor value=", self.revealed_image)
         x = self.revealed_image.numpy()
         return self.revealed_image
-    
+
     def done(self):
-        return self.current_step>=self.max_ep_len
+        return self.current_step >= self.max_ep_len
 
-    def step(self, action):
-        if type(action) == torch.Tensor:
+    #func_call is 0 for the first type of call and 1 for the second type of call
+    def step(self, action, func_call):
+        if func_call == 0:
             done = self.current_step == self.max_ep_len
-            self.revealed_image[:, self.current_loc[0], self.current_loc[1]] = self.img_gt[:, current_loc[0], current_loc[1]]
-            new_loc = self.compute_next_loc(action)
+            self.revealed_image[:, self.current_loc[0], self.current_loc[1]] = \
+                self.img_gt[:, self.current_loc[0], self.current_loc[1]]
 
-            pixel_value = self.img_gt[:,new_loc[0], new_loc[1]]
-            discover = not torch.equal(pixel_value, self.revealed_image[:,new_loc[0],new_loc[1]])
-            self.revealed_image[:, new_loc[0], new_loc[1]] = torch.tensor([mu.current_square]*3)
+            new_loc = self.compute_next_loc(action)
+            pixel_value = self.img_gt[:, new_loc[0], new_loc[1]]
+            discover = not torch.equal(pixel_value, self.revealed_image[:, new_loc[0], new_loc[1]])
+            self.revealed_image[:, new_loc[0], new_loc[1]] = torch.tensor([mu.current_square] * 3)
             ob = self.revealed_image
             self.current_step += 1
             self.current_loc = new_loc
             return done, ob
-        
+
         else:
             move = action['move']
             prediction = action['prediction']
             done = action['done']
 
             new_loc = self.compute_next_loc(move)
-            pixel_value = self.img_gt[:,new_loc[0],new_loc[1]]
-            discover = not torch.equal(pixel_value, self.revealed_image[:,new_loc[0],new_loc[1]])
-            self.revealed_image[:,new_loc[0],new_loc[1]] =  pixel_value
+            pixel_value = self.img_gt[:, new_loc[0], new_loc[1]]
+            discover = not torch.equal(pixel_value, self.revealed_image[:, new_loc[0], new_loc[1]])
+            self.revealed_image[:, new_loc[0], new_loc[1]] = pixel_value
             ob = self.revealed_image
             self.current_step += 1
             self.current_loc = new_loc
             reward = 1 if prediction == self.label else 0
 
-            done = self.current_step == self.max_ep_len
-
-            print("Pixel value=", self.revealed_image[:,new_loc[0],new_loc[1]])
+            print("Pixel value=", self.revealed_image[:, new_loc[0], new_loc[1]])
 
             info = {'discover': discover,
                     'img': deepcopy(ob),
                     'label': self.label,
-                    'prediction':prediction}
-            
+                    'prediction': prediction}
+
             done = self.current_step == self.max_ep_len
             return ob, reward, done, info
-
-
 
     def compute_next_loc(self, action):
         if action == 0:
@@ -110,9 +107,9 @@ class GridWorldEnv(gym.Env):
             y = self.current_loc[1]
         elif action == 1:
             x = self.current_loc[0]
-            y = self.current_loc[1] if self.current_loc[1] == WIDTH-1 else self.current_loc[1] + 1
+            y = self.current_loc[1] if self.current_loc[1] == WIDTH - 1 else self.current_loc[1] + 1
         elif action == 2:
-            x = self.current_loc[0] if self.current_loc[0] == HEIGHT-1  else self.current_loc[0] + 1
+            x = self.current_loc[0] if self.current_loc[0] == HEIGHT - 1 else self.current_loc[0] + 1
             y = self.current_loc[1]
         elif action == 3:
             x = self.current_loc[0]

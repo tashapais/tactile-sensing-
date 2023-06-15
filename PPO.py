@@ -51,7 +51,6 @@ class CoTrainingAlgorithm:
                                                         lr=0.001)
         self.action_dim = action_dim
         self.num_parallel_envs = num_parallel_envs  # if multiprocess else 1
-        self.agent = Agent(action_dim=self.action_dim, device=self.device, num_envs=self.num_parallel_envs)
         self.explorer = Explorer_NN(action_dim=self.action_dim, device=self.device)
         self.num_total_timesteps = num_total_timesteps
         self.num_steps = num_steps
@@ -108,7 +107,7 @@ class CoTrainingAlgorithm:
 
     def generate_training_data(self):
         cifar_dataset = ImageDataset(buffer_size=BUFFER_SIZE, height=HEIGHT, width=WIDTH)
-        agent = Agent(action_dim=4, device=self.device, num_envs=1)
+        agent = Explorer_NN(action_dim=self.action_dim, device=self.device)
         pbar = tqdm.tqdm(total=cifar_dataset.buffer_size)
 
         count = 0
@@ -127,7 +126,7 @@ class CoTrainingAlgorithm:
             done = False
             while not done and not len(cifar_dataset) == cifar_dataset.buffer_size:
                 action, log_prob, entropy = agent.get_move(torch.unsqueeze(img, 0))
-                done, img = grid_world_env.step(action)
+                done, img = grid_world_env.step(action, func_call=0)
                 self.render_visualization(img=img, classification=None)
                 img = img.to(self.device)
                 cifar_dataset.add_data(torch.unsqueeze(img, dim=0), label)
@@ -183,7 +182,7 @@ class CoTrainingAlgorithm:
                        'done': 1 if max_prob[i] >= self.terminal_confidence else 0
                        } for i in range(self.num_parallel_envs)]
 
-            next_obs, reward, dones, infos = self.envs.step(action)
+            next_obs, reward, dones, infos = self.envs.step(action, func_call=1)
             self.rewards[step] = reward.clone().detach().requires_grad_(True).to(self.device).view(-1)
             next_obs, next_done = torch.Tensor(next_obs).to(self.device), torch.Tensor(dones).to(self.device)
 
