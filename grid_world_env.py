@@ -82,7 +82,8 @@ class GridWorldEnv(gym.Env):
 
             self.revealed_image[:, self.current_loc[0], self.current_loc[1]] = \
                 self.img_gt[:, self.current_loc[0], self.current_loc[1]]
-
+            print("Current loc=",self.current_loc)
+            print("Revealed color=",self.img_gt[:, self.current_loc[0], self.current_loc[1]])
             new_loc = self.compute_next_loc(move)
             pixel_value = self.img_gt[:, new_loc[0], new_loc[1]]
             discover = not torch.equal(pixel_value, self.revealed_image[:, new_loc[0], new_loc[1]])
@@ -92,6 +93,8 @@ class GridWorldEnv(gym.Env):
             self.current_step += 1
             self.current_loc = new_loc
             reward = 1 if prediction == self.label else 0
+
+            print("New loc=", new_loc)
 
             print("Pixel value=", self.revealed_image[:, new_loc[0], new_loc[1]])
 

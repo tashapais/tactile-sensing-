@@ -16,7 +16,7 @@ from explorer_NN import Explorer_NN
 import matplotlib.pyplot as plt
 
 HEIGHT, WIDTH = 32, 32
-MAX_EP_LEN = 1000
+MAX_EP_LEN = 10
 BUFFER_SIZE = int(3e6)
 NO_IMAGES_ORIGINAL_TRAINING_DATA = 1
 NO_IMAGES_PPO = 1
@@ -185,6 +185,7 @@ class CoTrainingAlgorithm:
                        } for i in range(self.num_parallel_envs)]
 
             next_obs, reward, dones, infos = self.envs.step(action)
+            print(next_obs)
             self.rewards[step] = reward.clone().detach().requires_grad_(True).to(self.device).view(-1)
             next_obs, next_done = torch.Tensor(next_obs).to(self.device), torch.Tensor(dones).to(self.device)
 
@@ -266,8 +267,8 @@ class CoTrainingAlgorithm:
                 self.discriminator_dataset.add_data(torch.unsqueeze(img, 0), [info['label']])
 
     def co_training_loop(self):
-        next_obs = torch.Tensor(self.envs.reset()).to(self.device)
-        next_done = torch.zeros(self.num_parallel_envs).to(self.device)
+        next_obs = torch.Tensor(self.envs.reset())#.to(self.device)
+        next_done = torch.zeros(self.num_parallel_envs)#.to(self.device)
 
         count = 0
         for update_num in range(1, self.num_updates + 1):
