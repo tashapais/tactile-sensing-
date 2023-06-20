@@ -13,7 +13,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-		<mesh filename="/home/tasha/PycharmProjects/robotics/assets/meshes/visual/visual_finger.obj"/>
+		<mesh filename="/home/tasha/PycharmProjects/robotics/assets/meshes/visual/simplified_finger_mesh.obj"/>
       </geometry>
       <material name="black">
         <color rgba="0 0 0 1"/>
@@ -22,7 +22,7 @@
     <collision>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-	 	<mesh filename="/home/tasha/PycharmProjects/robotics/assets/meshes/collision/finger.obj"/>
+	 	<mesh filename="/home/tasha/PycharmProjects/robotics/assets/meshes/collision/simplified_finger_mesh.obj"/>
       </geometry>
     </collision>
   </link>
