@@ -16,7 +16,7 @@ from explorer_NN import Explorer_NN
 import matplotlib.pyplot as plt
 
 HEIGHT, WIDTH = 32, 32
-MAX_EP_LEN = 10
+MAX_EP_LEN = 5
 BUFFER_SIZE = int(3e6)
 NO_IMAGES_ORIGINAL_TRAINING_DATA = 1
 NO_IMAGES_PPO = 1
@@ -318,6 +318,8 @@ class CoTrainingAlgorithm:
 
 
 if __name__ == "__main__":
+
+
     co_trainer = CoTrainingAlgorithm(num_parallel_envs=1,
                                      num_total_timesteps=int(2e4),
                                      num_steps=MAX_EP_LEN,
@@ -331,3 +333,7 @@ if __name__ == "__main__":
     print("XXXXXX SAVING MODELS XXXXXXXXX")
 
     co_trainer.save_models()
+
+
+
+    print("Hello")

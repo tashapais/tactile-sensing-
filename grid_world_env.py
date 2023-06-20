@@ -36,11 +36,11 @@ class GridWorldEnv(gym.Env):
         self.num_classes = 10
         self.action_space = gym.spaces.Dict({"move": gym.spaces.Discrete(self.move_dim),
                                              "prediction": gym.spaces.Discrete(self.num_classes),
-                                             "probs": gym.spaces.Box(low=0, high=1, shape=(self.num_classes,)),
+                                             "probs": gym.spaces.Box(low=0, high=1, shape=(self.num_classes,), dtype=np.float64),
                                              "max_prob": gym.spaces.Box(low=0, high=1, shape=(1,)),
                                              "done": gym.spaces.Discrete(2)})
         self.observation_space = gym.spaces.Box(low=np.zeros((3, HEIGHT, WIDTH)),
-                                                high=np.full((3, HEIGHT, WIDTH), 1.0), dtype=np.float32)
+                                                high=np.full((3, HEIGHT, WIDTH), 1.0), dtype=np.float64)
 
     def reset(self):
         """ return initial observations"""
