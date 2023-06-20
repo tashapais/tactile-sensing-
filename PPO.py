@@ -16,7 +16,7 @@ from explorer_NN import Explorer_NN
 import matplotlib.pyplot as plt
 
 HEIGHT, WIDTH = 32, 32
-MAX_EP_LEN = 5
+MAX_EP_LEN = 100
 BUFFER_SIZE = int(3e6)
 NO_IMAGES_ORIGINAL_TRAINING_DATA = 1
 NO_IMAGES_PPO = 1
