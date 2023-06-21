@@ -185,13 +185,13 @@ class CoTrainingAlgorithm:
                        } for i in range(self.num_parallel_envs)]
 
             next_obs, reward, dones, infos = self.envs.step(action)
-            print(next_obs)
+            #print(next_obs)
             self.rewards[step] = reward.clone().detach().requires_grad_(True).to(self.device).view(-1)
             next_obs, next_done = torch.Tensor(next_obs).to(self.device), torch.Tensor(dones).to(self.device)
 
             self.add_new_data(infos, dones)
 
-        print("Shape opf observations", self.obs.shape)
+        #print("Shape opf observations", self.obs.shape)
         self.render_visualization(img=self.obs[self.num_steps-1, 0, ...].cpu(), classification="")
         return next_obs, next_done
 

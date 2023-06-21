@@ -502,7 +502,7 @@ def check_class(partial_grid, gt_grids):
 def get_current_loc(ob):
     """ ob is (3, height, width). (height, width) will not work """
 
-    print("Shape of ob", ob.shape)
+    #print("Shape of ob", ob.shape)
     if type(ob) == torch.Tensor:
         ob = ob.cpu().numpy()
     x_idx, y_idx = np.where(np.logical_and(ob[0] == current_square,
@@ -783,7 +783,7 @@ def save_command(file_path):
     args = copy.deepcopy(sys.argv)
     args[0] = os.path.basename(args[0])
     command = ' '.join(['python'] + args)
-    print(command)
+    #print(command)
     if not os.path.exists(os.path.dirname(file_path)):
         os.makedirs(os.path.dirname(file_path))
     text_file = open(file_path, "w")
