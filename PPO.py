@@ -14,9 +14,10 @@ import gym
 from pprint import pprint
 from explorer_NN import Explorer_NN
 import matplotlib.pyplot as plt
+import wandb
 
 HEIGHT, WIDTH = 32, 32
-MAX_EP_LEN = 100
+MAX_EP_LEN = 10
 BUFFER_SIZE = int(3e6)
 NO_IMAGES_ORIGINAL_TRAINING_DATA = 1
 NO_IMAGES_PPO = 1
@@ -48,7 +49,7 @@ class CoTrainingAlgorithm:
         self.dataloader = CIFARDataLoader(batch_size=1)
         self.discriminator_dataset = None
         self.discriminator = mu.construct_discriminator(discriminator_type="learned", height=HEIGHT, width=WIDTH,
-                                                        lr=0.001)
+                                                        lr=learning_rate)
         self.action_dim = action_dim
         self.num_parallel_envs = num_parallel_envs  # if multiprocess else 1
         self.explorer = Explorer_NN(action_dim=self.action_dim, device=self.device)
@@ -255,6 +256,7 @@ class CoTrainingAlgorithm:
 
                 loss = pg_loss - self.entropy_coef * entropy_loss + v_loss * self.value_coef
 
+                wandb.log({"loss": loss})
                 self.optimizer.zero_grad()
                 loss.backward()
                 nn.utils.clip_grad_norm_(self.explorer.agent.parameters(), self.max_grad_norm)
@@ -318,8 +320,7 @@ class CoTrainingAlgorithm:
 
 
 if __name__ == "__main__":
-
-
+    wandb.login()
     co_trainer = CoTrainingAlgorithm(num_parallel_envs=1,
                                      num_total_timesteps=int(2e4),
                                      num_steps=MAX_EP_LEN,
@@ -329,6 +330,14 @@ if __name__ == "__main__":
     print("XXXXXX TRAINING DISCRIMINATOR XXXXXXXXX")
     co_trainer.train_discriminator()
     print("XXXXXX INITIATING COTRAINING LOOP XXXXXXXXX")
+    run = wandb.init(
+        # Set the project where this run will be logged
+        project="co-training loop",
+        # Track hyperparameters and run metadata
+        config={
+            "learning_rate": co_trainer.lr,
+            "epochs": 10,
+        })
     co_trainer.co_training_loop()
     print("XXXXXX SAVING MODELS XXXXXXXXX")
 
