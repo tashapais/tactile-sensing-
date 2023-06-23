@@ -17,11 +17,11 @@ import matplotlib.pyplot as plt
 import wandb
 
 HEIGHT, WIDTH = 32, 32
-MAX_EP_LEN = 2000
+MAX_EP_LEN = 200
 BUFFER_SIZE = int(3e6)
-NO_IMAGES_ORIGINAL_TRAINING_DATA = 100
-NO_IMAGES_PPO = 100
-
+CIFAR_CLASSES = ('plane','car','bird','cat','deer','dog','frog','horse', 'ship', 'truck')
+CIFAR_KEY = {i: CLASS for i, CLASS in enumerate(CIFAR_CLASSES)}
+MOVE_KEY = {0: 'up', 1: 'left', 2: 'down', 3: 'right'}
 
 class CoTrainingAlgorithm:
     def __init__(self,
@@ -43,8 +43,6 @@ class CoTrainingAlgorithm:
                  value_coef=0.5,
                  max_grad_norm=0.5,
                  terminal_confidence=0.95):
-
-        # training params
         self.device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
         self.dataloader = CIFARDataLoader(batch_size=1)
         self.discriminator_dataset = None
@@ -111,14 +109,8 @@ class CoTrainingAlgorithm:
         agent = Explorer_NN(action_dim=self.action_dim, device=self.device)
         pbar = tqdm.tqdm(total=cifar_dataset.buffer_size)
 
-        count = 0
         for original_image, label in self.env_images:
-            self.render_visualization(img=original_image[0], classification=label.numpy())
-            if count == NO_IMAGES_ORIGINAL_TRAINING_DATA:
-                break
-
-            count += 1
-
+            self.render_visualization(img=original_image[0], title="Classified as "+CIFAR_KEY[label.numpy()[0]])
             grid_world_env = GridWorldEnv(max_ep_len=MAX_EP_LEN,
                                           label=label[0],
                                           image=original_image[0])
@@ -129,7 +121,7 @@ class CoTrainingAlgorithm:
                 action, log_prob, entropy = agent.get_move(torch.unsqueeze(img, 0))
                 done, img = grid_world_env.step(action)
                 if done:
-                    self.render_visualization(img=img, classification=None)
+                    self.render_visualization(img=img, title="")
                 img = img.to(self.device)
                 cifar_dataset.add_data(torch.unsqueeze(img, dim=0), label)
                 pbar.update(1)
@@ -150,7 +142,6 @@ class CoTrainingAlgorithm:
     def make_env(self, seed):
         def thunk():
             img, label = next(self.env_images)
-            # self.render_visualization(img=img[0], classification=label.numpy())
             env = GridWorldEnv(image=img[0], label=label[0], max_ep_len=self.num_steps)
             env = gym.wrappers.RecordEpisodeStatistics(env)
             env.seed(seed)
@@ -176,24 +167,21 @@ class CoTrainingAlgorithm:
 
             prediction, max_prob, probs = self.discriminator.predict(self.obs[step].cpu().numpy())
 
-            move = [move] #Bandage solution
+            move = [move]
 
-            action = [{'move': move[i], #.item(), bandage solution 2
+            action = [{'move': move[i],
                        'prediction': prediction[i],
                        'max_prob': max_prob[i],
                        'probs': probs[i],
                        'done': 1 if max_prob[i] >= self.terminal_confidence else 0
                        } for i in range(self.num_parallel_envs)]
-
             next_obs, reward, dones, infos = self.envs.step(action)
-            #print(next_obs)
+            self.render_visualization(img=next_obs, title="Moved  in the "+MOVE_KEY[move[0]]+" direction")
             self.rewards[step] = reward.clone().detach().requires_grad_(True).to(self.device).view(-1)
             next_obs, next_done = torch.Tensor(next_obs).to(self.device), torch.Tensor(dones).to(self.device)
 
             self.add_new_data(infos, dones)
 
-        #print("Shape opf observations", self.obs.shape)
-        self.render_visualization(img=self.obs[self.num_steps-1, 0, ...].cpu(), classification="")
         return next_obs, next_done
 
     def advantage_return_computation(self, next_obs, next_done):
@@ -269,16 +257,12 @@ class CoTrainingAlgorithm:
                 self.discriminator_dataset.add_data(torch.unsqueeze(img, 0), [info['label']])
 
     def co_training_loop(self):
-        next_obs = torch.Tensor(self.envs.reset())#.to(self.device)
-        next_done = torch.zeros(self.num_parallel_envs)#.to(self.device)
+        next_obs = torch.Tensor(self.envs.reset()).to(self.device)
+        next_done = torch.zeros(self.num_parallel_envs).to(self.device)
 
-        count = 0
         for update_num in range(1, self.num_updates + 1):
-            if count == NO_IMAGES_PPO:
-                break
-
-            count += 1
-            self.train_discriminator()
+            if update_num > 1:
+                self.train_discriminator()
 
             if self.anneal_lr:
                 frac = 1.0 - (update_num - 1.0) / self.num_updates
@@ -286,6 +270,7 @@ class CoTrainingAlgorithm:
                 self.optimizer.param_groups[0]["lr"] = self.lr
 
             next_obs, next_done = self.rollout(next_obs, next_done)
+
             advantages, returns = self.advantage_return_computation(next_obs=next_obs, next_done=next_done)
 
             batch_obs = self.obs.reshape((-1,) + self.envs.observation_space.shape)
@@ -307,15 +292,12 @@ class CoTrainingAlgorithm:
         torch.save(self.explorer.agent.state_dict(), DIR + "/AGENT")
         self.discriminator.save_model(DIR, "DISCRIMINATOR")
 
-    def render_visualization(self, img, classification):
+    def render_visualization(self, img, title):
         viz = img
-        title = ""
-        if classification:
-            typ = classification[0]
-            title = 'Classified as ' + self.classes[typ].upper()
         viz = torch.permute(viz, (1, 2, 0))
         plt.imshow(viz)
-        plt.title(title)
+        if title:
+            plt.title(title)
         plt.show()
 
 
@@ -331,14 +313,11 @@ if __name__ == "__main__":
     co_trainer.train_discriminator()
     print("XXXXXX INITIATING COTRAINING LOOP XXXXXXXXX")
     run = wandb.init(
-        # Set the project where this run will be logged
         project="co-training loop",
-        # Track hyperparameters and run metadata
         config={
             "learning_rate": co_trainer.lr,
             "epochs": 10,
         })
     co_trainer.co_training_loop()
     print("XXXXXX SAVING MODELS XXXXXXXXX")
-
     co_trainer.save_models()
