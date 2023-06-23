@@ -17,10 +17,10 @@ import matplotlib.pyplot as plt
 import wandb
 
 HEIGHT, WIDTH = 32, 32
-MAX_EP_LEN = 10
+MAX_EP_LEN = 2000
 BUFFER_SIZE = int(3e6)
-NO_IMAGES_ORIGINAL_TRAINING_DATA = 1
-NO_IMAGES_PPO = 1
+NO_IMAGES_ORIGINAL_TRAINING_DATA = 100
+NO_IMAGES_PPO = 100
 
 
 class CoTrainingAlgorithm:
@@ -342,7 +342,3 @@ if __name__ == "__main__":
     print("XXXXXX SAVING MODELS XXXXXXXXX")
 
     co_trainer.save_models()
-
-
-
-    print("Hello")
