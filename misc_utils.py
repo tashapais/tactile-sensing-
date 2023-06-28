@@ -33,6 +33,8 @@ white = 1.0
 unexplored = -0.1
 current_square = -0.5
 
+current_square_r, current_square_g, current_square_b = 1, 0, 1
+
 def show_img(img, title=None, ticks_off=False):
     """
     Universal show image function
@@ -505,9 +507,9 @@ def get_current_loc(ob):
     #print("Shape of ob", ob.shape)
     if type(ob) == torch.Tensor:
         ob = ob.cpu().numpy()
-    x_idx, y_idx = np.where(np.logical_and(ob[0] == current_square,
-                                           ob[1] == current_square,
-                                           ob[2] == current_square))
+    x_idx, y_idx = np.where(np.logical_and(ob[0] == current_square_r,
+                                           ob[1] == current_square_g,
+                                           ob[2] == current_square_b))
     assert len(x_idx) == 1 and len(y_idx) == 1
     x_idx, y_idx = x_idx[0], y_idx[0]
     return x_idx, y_idx

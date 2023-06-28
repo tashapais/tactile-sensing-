@@ -4,6 +4,7 @@ import tqdm
 from grid_world_env import GridWorldEnv
 from data import CIFARDataLoader
 import misc_utils as mu
+import matplotlib; matplotlib.use("TkAgg")
 import torch.optim as optim
 import time as time
 from ppo_discrete import Agent, VecPyTorch
@@ -15,11 +16,22 @@ from pprint import pprint
 from explorer_NN import Explorer_NN
 import matplotlib.pyplot as plt
 import wandb
+from matplotlib.animation import FuncAnimation
+import random
 
 HEIGHT, WIDTH = 32, 32
-MAX_EP_LEN = 200
+MAX_EP_LEN = 2000
 BUFFER_SIZE = int(3e6)
-CIFAR_CLASSES = ('plane','car','bird','cat','deer','dog','frog','horse', 'ship', 'truck')
+CIFAR_CLASSES = ('plane',
+                 'car',
+                 'bird',
+                 'cat',
+                 'deer',
+                 'dog',
+                 'frog',
+                 'horse',
+                 'ship',
+                 'truck')
 CIFAR_KEY = {i: CLASS for i, CLASS in enumerate(CIFAR_CLASSES)}
 MOVE_KEY = {0: 'up', 1: 'left', 2: 'down', 3: 'right'}
 
@@ -28,6 +40,7 @@ class CoTrainingAlgorithm:
                  num_parallel_envs,
                  num_total_timesteps,
                  num_steps,
+                 num_images_for_discriminator,
                  gae_lambda=0.95,
                  num_minibatches=4,
                  learning_rate=1e-3,
@@ -43,6 +56,7 @@ class CoTrainingAlgorithm:
                  value_coef=0.5,
                  max_grad_norm=0.5,
                  terminal_confidence=0.95):
+        self.num_images_for_discriminator = num_images_for_discriminator
         self.device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
         self.dataloader = CIFARDataLoader(batch_size=1)
         self.discriminator_dataset = None
@@ -109,8 +123,10 @@ class CoTrainingAlgorithm:
         agent = Explorer_NN(action_dim=self.action_dim, device=self.device)
         pbar = tqdm.tqdm(total=cifar_dataset.buffer_size)
 
+        images = 0
         for original_image, label in self.env_images:
-            self.render_visualization(img=original_image[0], title="Classified as "+CIFAR_KEY[label.numpy()[0]])
+            images += 1
+            self.render_visualization(img=original_image[0], title="Initial training rollout Is a "+CIFAR_KEY[label.numpy()[0]], flag=False)
             grid_world_env = GridWorldEnv(max_ep_len=MAX_EP_LEN,
                                           label=label[0],
                                           image=original_image[0])
@@ -120,11 +136,13 @@ class CoTrainingAlgorithm:
             while not done and not len(cifar_dataset) == cifar_dataset.buffer_size:
                 action, log_prob, entropy = agent.get_move(torch.unsqueeze(img, 0))
                 done, img = grid_world_env.step(action)
-                if done:
-                    self.render_visualization(img=img, title="")
+                self.render_visualization(img=img, title="initial training rollout")
                 img = img.to(self.device)
                 cifar_dataset.add_data(torch.unsqueeze(img, dim=0), label)
                 pbar.update(1)
+
+            if images > self.num_images_for_discriminator:
+                break
 
         pbar.close()
         self.discriminator_dataset = cifar_dataset
@@ -176,7 +194,7 @@ class CoTrainingAlgorithm:
                        'done': 1 if max_prob[i] >= self.terminal_confidence else 0
                        } for i in range(self.num_parallel_envs)]
             next_obs, reward, dones, infos = self.envs.step(action)
-            self.render_visualization(img=next_obs, title="Moved  in the "+MOVE_KEY[move[0]]+" direction")
+            self.render_visualization(img=next_obs[0].cpu(), title="Moved  in the "+MOVE_KEY[move[0]]+" direction")
             self.rewards[step] = reward.clone().detach().requires_grad_(True).to(self.device).view(-1)
             next_obs, next_done = torch.Tensor(next_obs).to(self.device), torch.Tensor(dones).to(self.device)
 
@@ -292,19 +310,29 @@ class CoTrainingAlgorithm:
         torch.save(self.explorer.agent.state_dict(), DIR + "/AGENT")
         self.discriminator.save_model(DIR, "DISCRIMINATOR")
 
-    def render_visualization(self, img, title):
-        viz = img
-        viz = torch.permute(viz, (1, 2, 0))
-        plt.imshow(viz)
-        if title:
-            plt.title(title)
-        plt.show()
-
+    def render_visualization(self, img, title, flag=True):
+        if flag:
+            m = random.randint(1,100)
+            if m%20==0:
+                viz = img
+                viz = torch.permute(viz, (1, 2, 0))
+                plt.imshow(viz)
+                if title:
+                    plt.title(title)
+                plt.pause(interval=0.001)
+        else:
+            viz = img
+            viz = torch.permute(viz, (1, 2, 0))
+            plt.imshow(viz)
+            if title:
+                plt.title(title)
+            plt.pause(interval=0.001)
 
 if __name__ == "__main__":
     wandb.login()
     co_trainer = CoTrainingAlgorithm(num_parallel_envs=1,
-                                     num_total_timesteps=int(2e4),
+                                     num_total_timesteps=int(40000),
+                                     num_images_for_discriminator=2,
                                      num_steps=MAX_EP_LEN,
                                      multiprocess=False)
     print("XXXXXX GENERATING TRAINING DATA XXXXXXXXX")
@@ -321,3 +349,4 @@ if __name__ == "__main__":
     co_trainer.co_training_loop()
     print("XXXXXX SAVING MODELS XXXXXXXXX")
     co_trainer.save_models()
+    plt.show()

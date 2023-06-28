@@ -50,7 +50,9 @@ class GridWorldEnv(gym.Env):
         self.img_gt = self.image
         initial_loc = torch.randint(low=0, high=32, size=(2,))
         self.current_step = 0
-        self.revealed_image[:, initial_loc[0], initial_loc[1]] = torch.tensor([mu.current_square] * 3)
+        self.revealed_image[:, initial_loc[0], initial_loc[1]] = torch.tensor([mu.current_square_r,
+                                                                               mu.current_square_g,
+                                                                               mu.current_square_b])
         self.current_loc = initial_loc
         self.current_step += 1
         x = self.revealed_image.numpy()
@@ -69,7 +71,9 @@ class GridWorldEnv(gym.Env):
             new_loc = self.compute_next_loc(action)
             pixel_value = self.img_gt[:, new_loc[0], new_loc[1]]
             discover = not torch.equal(pixel_value, self.revealed_image[:, new_loc[0], new_loc[1]])
-            self.revealed_image[:, new_loc[0], new_loc[1]] = torch.tensor([mu.current_square] * 3)
+            self.revealed_image[:, new_loc[0], new_loc[1]] = torch.tensor([mu.current_square_r,
+                                                                           mu.current_square_g,
+                                                                           mu.current_square_b])
             ob = self.revealed_image
             self.current_step += 1
             self.current_loc = new_loc
@@ -87,7 +91,11 @@ class GridWorldEnv(gym.Env):
             new_loc = self.compute_next_loc(move)
             pixel_value = self.img_gt[:, new_loc[0], new_loc[1]]
             discover = not torch.equal(pixel_value, self.revealed_image[:, new_loc[0], new_loc[1]])
-            self.revealed_image[:, new_loc[0], new_loc[1]] = torch.tensor([mu.current_square] * 3)
+
+
+            self.revealed_image[:, new_loc[0], new_loc[1]] = torch.tensor([mu.current_square_r,
+                                                                           mu.current_square_g,
+                                                                           mu.current_square_b])
 
             ob = self.revealed_image
             self.current_step += 1
