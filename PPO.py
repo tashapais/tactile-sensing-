@@ -20,7 +20,7 @@ from matplotlib.animation import FuncAnimation
 import random
 
 HEIGHT, WIDTH = 32, 32
-MAX_EP_LEN = 1000
+MAX_EP_LEN = 5000
 BUFFER_SIZE = int(3e6)
 CIFAR_CLASSES = ('plane',
                  'car',
@@ -95,6 +95,7 @@ class CoTrainingAlgorithm:
         self.single_action_space_shape = (self.action_dim,)
         self.seed = int(time.time())
         self.env_images = iter(self.dataloader.return_trainloader())
+        self.envs=None
         if self.multiprocess:
             # could this have anything to do with the device at all????
             # few things to try: 1. us the sub proc vec env with one if self.num_parralel_envs = 1,
@@ -126,10 +127,8 @@ class CoTrainingAlgorithm:
         images = 0
         for original_image, label in self.env_images:
             images += 1
-            print("Is the below working or not?")
-            self.render_visualization_determenistic(img=original_image[0],
-                                                    title="Initial training rollout is a "+CIFAR_KEY[label.numpy()[0]])
-            print("Why is it not working?")
+            # self.render_visualization_determenistic(img=original_image[0],
+            #                                         title="Initial training rollout is a "+CIFAR_KEY[label.numpy()[0]])
             grid_world_env = GridWorldEnv(max_ep_len=MAX_EP_LEN,
                                           label=label[0],
                                           image=original_image[0])
@@ -139,8 +138,8 @@ class CoTrainingAlgorithm:
             while not done and not len(cifar_dataset) == cifar_dataset.buffer_size:
                 action, log_prob, entropy = agent.get_move(torch.unsqueeze(img, 0))
                 done, img = grid_world_env.step(action)
-                self.render_visualization_random(img=img,
-                                                 title="initial training rollout")
+                # self.render_visualization_random(img=img,
+                #                                  title="initial training rollout")
                 img = img.to(self.device)
                 cifar_dataset.add_data(torch.unsqueeze(img, dim=0), label)
                 pbar.update(1)
@@ -160,6 +159,22 @@ class CoTrainingAlgorithm:
             pprint(stats)
         else:
             raise Exception("Discriminator dataset not configured yet")
+
+    def create_new_image_envs(self):
+        if self.multiprocess:
+            # could this have anything to do with the device at all????
+            # few things to try: 1. us the sub proc vec env with one if self.num_parralel_envs = 1,
+            # simple script to test out a simple env, and test out subprocvecenv class
+            # simple script to test out a simple env, and test out subprocvecenv class
+            # go to github to stable baselines => got to stable baselines and search in their issues you might.
+            # write a script to reproduce the error create a simple script that recreates the error.
+            self.envs = VecPyTorch(
+                SubprocVecEnv([self.make_env(self.seed + i) for i in range(self.num_parallel_envs)], 'fork'),
+                self.device)
+        else:
+            self.envs = VecPyTorch(DummyVecEnv([self.make_env(self.seed + i) for i in range(self.num_parallel_envs)]),
+                                   self.device)
+
 
     def make_env(self, seed):
         def thunk():
@@ -198,7 +213,7 @@ class CoTrainingAlgorithm:
                        'done': 1 if max_prob[i] >= self.terminal_confidence else 0
                        } for i in range(self.num_parallel_envs)]
             next_obs, reward, dones, infos = self.envs.step(action)
-            self.render_visualization(img=next_obs[0].cpu(), title="Moved  in the "+MOVE_KEY[move[0]]+" direction")
+            # self.render_visualization_random(img=next_obs[0].cpu(), title="Moved  in the "+MOVE_KEY[move[0]]+" direction")
             self.rewards[step] = reward.clone().detach().requires_grad_(True).to(self.device).view(-1)
             next_obs, next_done = torch.Tensor(next_obs).to(self.device), torch.Tensor(dones).to(self.device)
 
@@ -279,10 +294,10 @@ class CoTrainingAlgorithm:
                 self.discriminator_dataset.add_data(torch.unsqueeze(img, 0), [info['label']])
 
     def co_training_loop(self):
-        next_obs = torch.Tensor(self.envs.reset()).to(self.device)
-        next_done = torch.zeros(self.num_parallel_envs).to(self.device)
-
         for update_num in range(1, self.num_updates + 1):
+            next_obs = torch.Tensor(self.envs.reset()).to(self.device)
+            next_done = torch.zeros(self.num_parallel_envs).to(self.device)
+
             if update_num > 1:
                 self.train_discriminator()
 
@@ -308,6 +323,7 @@ class CoTrainingAlgorithm:
                               batch_advantages=batch_advantages,
                               batch_returns=batch_returns,
                               batch_values=batch_values)
+            self.create_new_image_envs()
 
     def save_models(self):
         DIR = "./SAVED_MODELS"
@@ -334,8 +350,8 @@ class CoTrainingAlgorithm:
 if __name__ == "__main__":
     wandb.login()
     co_trainer = CoTrainingAlgorithm(num_parallel_envs=1,
-                                     num_total_timesteps=int(2000),
-                                     num_images_for_discriminator=2,
+                                     num_total_timesteps=int(5e5),
+                                     num_images_for_discriminator=100,
                                      num_steps=MAX_EP_LEN,
                                      multiprocess=False)
     print("XXXXXX GENERATING TRAINING DATA XXXXXXXXX")
@@ -352,4 +368,3 @@ if __name__ == "__main__":
     co_trainer.co_training_loop()
     print("XXXXXX SAVING MODELS XXXXXXXXX")
     co_trainer.save_models()
-    plt.show()
