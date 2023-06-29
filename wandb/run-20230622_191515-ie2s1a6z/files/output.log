@@ -1,0 +1,37 @@
+100%|██████████| 8/8 [00:00<00:00, 562.51it/s]
+100%|██████████| 2/2 [00:00<00:00, 842.06it/s]
+100%|██████████| 8/8 [00:00<00:00, 694.98it/s]
+100%|██████████| 2/2 [00:00<00:00, 822.09it/s]
+100%|██████████| 8/8 [00:00<00:00, 719.36it/s]
+100%|██████████| 2/2 [00:00<00:00, 931.45it/s]
+Clipping input data to the valid range for imshow with RGB data ([0..1] for floats or [0..255] for integers).
+Train Epoch: 0 | Loss: 0.000184 | Acc: 1.000000
+Test Epoch: 0 | Loss: 0.000000 | Acc: 1.000000
+Train Epoch: 1 | Loss: 0.000001 | Acc: 1.000000
+Test Epoch: 1 | Loss: 0.000000 | Acc: 1.000000
+Train Epoch: 2 | Loss: 0.000000 | Acc: 1.000000
+Test Epoch: 2 | Loss: 0.000000 | Acc: 1.000000
+[{'epoch': 0,
+  'test_acc': 1.0,
+  'test_loss': 0.0,
+  'train_acc': 1.0,
+  'train_loss': 0.00018389252363704145},
+ {'epoch': 1,
+  'test_acc': 1.0,
+  'test_loss': 0.0,
+  'train_acc': 1.0,
+  'train_loss': 1.1324864317430183e-06},
+ {'epoch': 2,
+  'test_acc': 1.0,
+  'test_loss': 0.0,
+  'train_acc': 1.0,
+  'train_loss': 0.0}]
+XXXXXX SAVING MODELS XXXXXXXXX
+Hello
+Traceback (most recent call last):
+  File "/Applications/PyCharm.app/Contents/plugins/python/helpers/pydev/pydevd.py", line 2195, in <module>
+    main()
+  File "/Applications/PyCharm.app/Contents/plugins/python/helpers/pydev/pydevd.py", line 2183, in main
+    debugger.wait_for_commands(globals)
+  File "/Applications/PyCharm.app/Contents/plugins/python/helpers/pydev/pydevd.py", line 1551, in wait_for_commands
+    time.sleep(0.01)

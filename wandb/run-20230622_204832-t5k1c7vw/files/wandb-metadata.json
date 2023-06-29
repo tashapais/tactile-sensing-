@@ -1,0 +1,34 @@
+{
+    "os": "macOS-13.4-arm64-arm-64bit",
+    "python": "3.9.13",
+    "heartbeatAt": "2023-06-23T00:48:32.851573",
+    "startedAt": "2023-06-23T00:48:32.292861",
+    "docker": null,
+    "cuda": null,
+    "args": [],
+    "state": "running",
+    "program": "/Users/nikhileshbelulkar/Documents/tactile-sensing-/PPO.py",
+    "codePath": "PPO.py",
+    "git": {
+        "remote": "https://github.com/tashapais/tactile-sensing-.git",
+        "commit": "d3e965dc32e13d039a51d54ef28e774082c8d23d"
+    },
+    "email": "nb2953@columbia.edu",
+    "root": "/Users/nikhileshbelulkar/Documents/tactile-sensing-",
+    "host": "Nikhileshs-MBP",
+    "username": "nikhileshbelulkar",
+    "executable": "/Users/nikhileshbelulkar/opt/miniconda3/bin/python",
+    "cpu_count": 8,
+    "cpu_count_logical": 8,
+    "disk": {
+        "total": 460.4317207336426,
+        "used": 324.6196823120117
+    },
+    "gpuapple": {
+        "type": "arm",
+        "vendor": "Apple"
+    },
+    "memory": {
+        "total": 16.0
+    }
+}
