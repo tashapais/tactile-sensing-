@@ -330,6 +330,7 @@ class CoTrainingAlgorithm:
                 plt.title(title)
             plt.pause(interval=0.001)
 
+
 if __name__ == "__main__":
     wandb.login()
     co_trainer = CoTrainingAlgorithm(num_parallel_envs=1,
