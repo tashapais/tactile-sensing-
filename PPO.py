@@ -20,7 +20,7 @@ from matplotlib.animation import FuncAnimation
 import random
 
 HEIGHT, WIDTH = 32, 32
-MAX_EP_LEN = 2000
+MAX_EP_LEN = 1000
 BUFFER_SIZE = int(3e6)
 CIFAR_CLASSES = ('plane',
                  'car',
@@ -126,7 +126,10 @@ class CoTrainingAlgorithm:
         images = 0
         for original_image, label in self.env_images:
             images += 1
-            self.render_visualization(img=original_image[0], title="Initial training rollout Is a "+CIFAR_KEY[label.numpy()[0]], flag=False)
+            print("Is the below working or not?")
+            self.render_visualization_determenistic(img=original_image[0],
+                                                    title="Initial training rollout is a "+CIFAR_KEY[label.numpy()[0]])
+            print("Why is it not working?")
             grid_world_env = GridWorldEnv(max_ep_len=MAX_EP_LEN,
                                           label=label[0],
                                           image=original_image[0])
@@ -136,7 +139,8 @@ class CoTrainingAlgorithm:
             while not done and not len(cifar_dataset) == cifar_dataset.buffer_size:
                 action, log_prob, entropy = agent.get_move(torch.unsqueeze(img, 0))
                 done, img = grid_world_env.step(action)
-                self.render_visualization(img=img, title="initial training rollout")
+                self.render_visualization_random(img=img,
+                                                 title="initial training rollout")
                 img = img.to(self.device)
                 cifar_dataset.add_data(torch.unsqueeze(img, dim=0), label)
                 pbar.update(1)
@@ -310,19 +314,17 @@ class CoTrainingAlgorithm:
         torch.save(self.explorer.agent.state_dict(), DIR + "/AGENT")
         self.discriminator.save_model(DIR, "DISCRIMINATOR")
 
-    def render_visualization(self, img, title, flag=True):
-        if flag:
-            m = random.randint(1,100)
-            if m%20==0:
-                viz = img
-                viz = torch.permute(viz, (1, 2, 0))
-                plt.imshow(viz)
-                if title:
-                    plt.title(title)
-                plt.pause(interval=0.001)
-        else:
-            viz = img
-            viz = torch.permute(viz, (1, 2, 0))
+    def render_visualization_random(self, img, title):
+        m = random.randint(1,100)
+        if m%20==0:
+            viz = torch.permute(img, (1, 2, 0))
+            plt.imshow(viz)
+            if title:
+                plt.title(title)
+            plt.pause(interval=0.001)
+
+    def render_visualization_determenistic(self, img, title):
+            viz = torch.permute(img, (1, 2, 0))
             plt.imshow(viz)
             if title:
                 plt.title(title)
@@ -331,7 +333,7 @@ class CoTrainingAlgorithm:
 if __name__ == "__main__":
     wandb.login()
     co_trainer = CoTrainingAlgorithm(num_parallel_envs=1,
-                                     num_total_timesteps=int(40000),
+                                     num_total_timesteps=int(2000),
                                      num_images_for_discriminator=2,
                                      num_steps=MAX_EP_LEN,
                                      multiprocess=False)
