@@ -350,8 +350,8 @@ class CoTrainingAlgorithm:
 if __name__ == "__main__":
     wandb.login()
     co_trainer = CoTrainingAlgorithm(num_parallel_envs=1,
-                                     num_total_timesteps=int(5e5),
-                                     num_images_for_discriminator=100,
+                                     num_total_timesteps=int(1e5),
+                                     num_images_for_discriminator=20,
                                      num_steps=MAX_EP_LEN,
                                      multiprocess=False)
     print("XXXXXX GENERATING TRAINING DATA XXXXXXXXX")
