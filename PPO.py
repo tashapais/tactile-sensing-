@@ -97,12 +97,6 @@ class CoTrainingAlgorithm:
         self.env_images = iter(self.dataloader.return_trainloader())
         self.envs=None
         if self.multiprocess:
-            # could this have anything to do with the device at all????
-            # few things to try: 1. us the sub proc vec env with one if self.num_parralel_envs = 1,
-            # simple script to test out a simple env, and test out subprocvecenv class
-            # simple script to test out a simple env, and test out subprocvecenv class
-            # go to github to stable baselines => got to stable baselines and search in their issues you might.
-            # write a script to reproduce the error create a simple script that recreates the error.
             self.envs = VecPyTorch(
                 SubprocVecEnv([self.make_env(self.seed + i) for i in range(self.num_parallel_envs)], 'fork'),
                 self.device)
@@ -162,12 +156,6 @@ class CoTrainingAlgorithm:
 
     def create_new_image_envs(self):
         if self.multiprocess:
-            # could this have anything to do with the device at all????
-            # few things to try: 1. us the sub proc vec env with one if self.num_parralel_envs = 1,
-            # simple script to test out a simple env, and test out subprocvecenv class
-            # simple script to test out a simple env, and test out subprocvecenv class
-            # go to github to stable baselines => got to stable baselines and search in their issues you might.
-            # write a script to reproduce the error create a simple script that recreates the error.
             self.envs = VecPyTorch(
                 SubprocVecEnv([self.make_env(self.seed + i) for i in range(self.num_parallel_envs)], 'fork'),
                 self.device)
